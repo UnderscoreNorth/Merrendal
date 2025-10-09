@@ -137,3 +137,14 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+front/.DS_Store
+front/node_modules
+front/build
+front/.svelte-kit
+front/package
+front/.env
+front/.env.*
+front/!.env.example
+front/.vercel
+front/.output

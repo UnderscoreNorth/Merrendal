@@ -1,0 +1,22 @@
+@font-face {
+  font-family: "Runescape UF";
+  src: url("$lib/runescape_bold.ttf") format("truetype");
+}
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: "Runescape UF", "Helvetica";
+  background: slategray;
+}
+html {
+  font-size: 14px;
+}
+* {
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Old versions of Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Non-prefixed version, currently
+                                  supported by Chrome, Edge, Opera and Firefox */
+}
