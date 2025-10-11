@@ -27,6 +27,10 @@ export type GameState = {
   choiceEvents: ChoiceEvent[];
   pastLords: Lord[];
   activeEvents: Event[];
+  village: {
+    trust: number;
+    authority: number;
+  };
 };
 export const game = writable<GameState>({
   npcs: [],
@@ -46,6 +50,10 @@ export const game = writable<GameState>({
   choiceEvents: [],
   pastLords: [],
   activeEvents: [],
+  village: {
+    trust: 0,
+    authority: 0,
+  },
 });
 export const map = writable<TerrainTile[]>([]);
 export type View = {
@@ -64,6 +72,6 @@ export const view = writable<View>({
   yDiff: 0,
   renderSize: 1000,
 });
-export const openModals = writable<Record<string, boolean>>({});
+export const openModals = writable<Record<string, any>>({});
 export const mouseCood = writable<{ x: number; y: number }>({ x: 0, y: 0 });
 export const autoPlay = writable<boolean>(false);

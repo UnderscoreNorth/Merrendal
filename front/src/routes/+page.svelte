@@ -18,6 +18,7 @@
   import PastLords from "$lib/ui/Modals/PastLords.svelte";
   import Events from "$lib/ui/Cards/Events.svelte";
   import AddNeedModal from "$lib/ui/Modals/AddNeedModal.svelte";
+  import EventDetail from "$lib/ui/Modals/EventDetail.svelte";
   init();
 </script>
 
@@ -48,6 +49,11 @@
     {#if $openModals["addNeeds"]}
       <Card draggable={true} padding={1}>
         <AddNeedModal />
+      </Card>
+    {/if}
+    {#if $openModals["eventDetail"] !== undefined}
+      <Card draggable={true} padding={1}>
+        <EventDetail />
       </Card>
     {/if}
   </Modal>

@@ -1,5 +1,14 @@
 <script lang="ts">
   import { game, openModals } from "$lib/stores";
+  function getTrustType(trust: number) {
+    if (trust < 200) return "Rebellious";
+    if (trust < 400) return "Distrustful";
+    if (trust < 600) return "Suspicious";
+    if (trust < 800) return "Cautious";
+    if (trust < 1000) return "Approving";
+    if (trust < 1200) return "Trustful";
+    return "Loyal";
+  }
 </script>
 
 {#if $game.lord}
@@ -30,6 +39,8 @@
       </div>
     </div>
   </div>
+  <hr />
+  Village Trust: {getTrustType($game.village.trust)}
 {/if}
 
 <style>

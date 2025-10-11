@@ -414,7 +414,8 @@ export class Map {
     );
     //Determining Lakes
     ungrouped = [...this.water].map((i) => fromCube(i));
-    do {
+
+    /*do {
       let qrs = ungrouped[0];
       const tile = this.tiles[qrs];
       tile.groupID = qrs;
@@ -442,10 +443,44 @@ export class Map {
         }
         d++;
       } while (found);
-    } while (ungrouped.length);
+    } while (ungrouped.length);*/
+    for (const tile of Object.values(this.tiles)) {
+      if (tile.type !== "water") continue;
+      let neighborID = "";
+      for (const neighbor of this.getRing(tile.q, tile.s, tile.r, 1)) {
+        if (neighbor.type == "water" && neighbor.groupID !== "")
+          neighborID = neighbor.groupID;
+      }
+      if (neighborID) {
+        tile.groupID = neighborID;
+      } else {
+        tile.groupID = fromCube(tile);
+      }
+    }
+    let change: boolean = false;
+    let attempts = 0;
+    do {
+      change = false;
+      for (const tile of Object.values(this.tiles)) {
+        if (tile.type !== "water") continue;
+        let neighborID = "";
+        for (const neighbor of this.getRing(tile.q, tile.s, tile.r, 1)) {
+          if (neighbor.type == "water" && neighbor.groupID !== tile.groupID) {
+            neighborID = neighbor.groupID;
+          }
+        }
+        if (neighborID) {
+          for (const tile2 of Object.values(this.tiles)) {
+            if (tile2.groupID == tile.groupID) tile2.groupID = neighborID;
+          }
+          change = true;
+        }
+      }
+      attempts++;
+    } while (change == true && attempts < 100);
     for (let qsr in this.tiles) {
       const tile = this.tiles[qsr];
-      if (tile.groupID && tile.elevation < 0) {
+      if (tile.type == "water") {
         if (this.lakes[tile.groupID] == undefined)
           this.lakes[tile.groupID] = [];
         this.lakes[tile.groupID].push(qsr);
@@ -456,9 +491,8 @@ export class Map {
       (a, b) => b.length - a.length,
     )[0];
     console.log("Ocean size:", Object.keys(this.ocean).length);
-    console.log("# Lakes:", Object.keys(this.lakes).length);
+    console.log("# Lakes:", Object.keys(this.lakes));
     for (let i = 1; i < Object.values(this.lakes).length; i++) {
-      if (Object.values(this.lakes)[i].length !== 1) continue;
       const lakeTile = Object.values(this.lakes)[i][0];
       console.log(lakeTile);
     }

@@ -1,14 +1,19 @@
-<script>
-  import { game } from "$lib/stores";
+<script lang="ts">
+  import { game, openModals } from "$lib/stores";
+  import type { Event } from "$lib/data/events";
+
+  function openEventDetail(event: Event) {
+    $openModals["eventDetail"] = event;
+  }
 </script>
 
-{#if $game.activeEvents}
+{#if $game.activeEvents.length}
   <hr />
 {/if}
 {#each $game.activeEvents as event}
   <div class="eventContainer">
     <div style:font-size="1.3rem">{event.id}</div>
-    <button>🔍</button>
+    <button on:click={() => openEventDetail(event)}>🔍</button>
     <div><i>{event.desc}</i></div>
   </div>
   <hr />

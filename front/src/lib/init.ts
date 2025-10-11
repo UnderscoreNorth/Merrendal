@@ -117,6 +117,10 @@ export function init() {
     choiceEvents: [],
     pastLords: [],
     activeEvents: [],
+    village: {
+      trust: 700,
+      authority: 700,
+    },
   });
 
   map.set(

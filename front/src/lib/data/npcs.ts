@@ -82,9 +82,18 @@ export function assignNPCs(
 ) {
   let title = "";
   let stuck = false;
+  let targetArea: any = null;
+
+  // Find which area this target belongs to
   if ("occupationTitle" in target) {
+    // It's a building - find the area containing it
+    targetArea = gs.areas.find((area) => area.buildings.includes(target));
     title = target.occupationTitle ?? "";
   } else if ("phases" in target) {
+    // It's a project - find the area containing it
+    targetArea = gs.areas.find((area) =>
+      Object.values(area.currentProjects).includes(target),
+    );
     const currentPhase = target.phases[target.currentPhase - 1];
     title = currentPhase.occupationTitle ?? "";
     stuck = currentPhase.stuck;
@@ -94,6 +103,23 @@ export function assignNPCs(
         title = currentBuilding.occupationTitle;
     }
   }
+
+  // Check if forest work is blocked by Creatures of the Forest event
+  if (targetArea && targetArea.type === "Forest") {
+    const cotfEvent = gs.activeEvents.find(
+      (e) => e.id === "Creatures of the Forest",
+    );
+    if (cotfEvent && cotfEvent.phase.forestWorkRefused) {
+      // Only allow scouting and hunting projects for this event
+      if (
+        !("type" in target) ||
+        (target.type !== "Scouting_COTF" && target.type !== "Hunting_COTF")
+      ) {
+        return 0; // Don't assign workers to forest areas
+      }
+    }
+  }
+
   if (title == "") throw target;
   let assigned = 0;
   for (let i = 0; i < num; i++) {

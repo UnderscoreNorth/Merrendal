@@ -22,6 +22,7 @@
   let riverTextures: Record<string, PIXI.Texture> = {};
   let tilesheetLoaded = false;
   let season = "";
+  let lakes: Set<string> = new Set();
 
   type TreeCoord = { x: number; y: number; var: number };
 
@@ -338,6 +339,7 @@
         // Elevation ranges from -3 to 0 for water
         // Map to brightness: -3 (deepest) = 0.4, 0 (shallow) = 1.0
         brightness = 0.4 + ((cell.elevation + 3) / 3) * 0.6;
+        //brightness = Array.from(lakes).indexOf(cell.groupID) / lakes.size;
         const tintValue = Math.floor(brightness * 255);
         sprite.tint = (tintValue << 16) | (tintValue << 8) | tintValue;
       } else if (!["farmland", "village"].includes(cell.type)) {
@@ -380,6 +382,12 @@
   function buildMap() {
     if (!app || !mapContainer || !tilesheetLoaded) return;
     console.time("building map");
+    lakes = new Set();
+    for (const tile of $map) {
+      if (tile.type == "water") {
+        lakes.add(tile.groupID);
+      }
+    }
     const u = $view.renderSize / (($game.mapSize * 6) / 2);
     for (const cell of $map) {
       drawTile(cell, u);
