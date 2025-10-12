@@ -8,8 +8,8 @@
     class="close"
     style:float="right"
     on:click={() => {
-      $openModals["pastLords"] = false;
-    }}>❌</span
+      $openModals["pastLords"] = undefined;
+    }}>X</span
   >
 </h1>
 <div style:overflow-y={"auto"} style:max-height={"50vh"}>

@@ -27,11 +27,18 @@ export function simulateDay() {
   procressGoals(gs);
 
   // Consume food
-  consumeFood(gs);
+  if (gs.currentPeriod == "Afternoon") consumeFood(gs);
 
   // Process statuses after food consumption
   processStatuses(gs);
 
+  if (gs.currentPeriod === "Morning") {
+    gs.currentPeriod = "Afternoon";
+  } else if (gs.currentPeriod === "Afternoon") {
+    gs.currentPeriod = "Evening";
+  } else {
+    gs.currentPeriod = "Morning";
+  }
   // Update game state
   game.set(gs);
   //console.log(gs);

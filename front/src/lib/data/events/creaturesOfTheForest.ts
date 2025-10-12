@@ -1,7 +1,7 @@
-import { killNPC } from "$lib/simulation/mortality";
+import { killLord, killNPC } from "$lib/simulation/mortality";
 import { type GameState } from "$lib/stores";
 import { pick } from "$lib/util/rolls";
-import { type ChoiceEvent } from "../choices";
+import { type Choice, type ChoiceEvent } from "../choices";
 import { Event, type EventContainer, type SubEvent } from "../events";
 import { assignNPCs } from "../npcs";
 import { type Project } from "../projects/project";
@@ -31,6 +31,7 @@ class Event_CreaturesOfTheForest extends Event {
         title: "Send Scouts",
         desc: "Send 4 workers into the forest for 3 days to gather information about the creatures.",
         completed: false,
+        visible: true, // Always visible
         inProgress: false,
         projectKey: "Scouting_COTF",
         createChoiceEvent: (parentEvent) =>
@@ -41,6 +42,7 @@ class Event_CreaturesOfTheForest extends Event {
         title: "Prepare Defenses",
         desc: "Gather 20 spears to prepare for a potential attack.",
         completed: false,
+        visible: true, // Always visible
         createChoiceEvent: (parentEvent) =>
           createPreparationChoiceEvent(
             parentEvent as Event_CreaturesOfTheForest,
@@ -51,6 +53,7 @@ class Event_CreaturesOfTheForest extends Event {
         title: "Hunt the Creatures",
         desc: "Organize a hunting party to eliminate the creatures.",
         completed: false,
+        visible: false, // Only visible after scouting is complete
         inProgress: false,
         createChoiceEvent: (parentEvent) =>
           createHuntingChoiceEvent(parentEvent as Event_CreaturesOfTheForest),
@@ -73,9 +76,17 @@ class Event_CreaturesOfTheForest extends Event {
         const scoutingArea = gs.areas.find(
           (a) => a.currentProjects["Scouting_COTF"],
         );
-        if (!scoutingArea) {
+        const lordScoutingArea = gs.areas.find(
+          (a) => a.currentProjects["Scouting_COTF_Lord"],
+        );
+
+        if (!scoutingArea && !lordScoutingArea) {
           // Project completed - handle scouting results
-          this.handleScoutingCompletion(gs, scoutingSubEvent);
+          if (this.phase.lordLeadingScouting) {
+            this.handleLordScoutingCompletion(gs, scoutingSubEvent);
+          } else {
+            this.handleScoutingCompletion(gs, scoutingSubEvent);
+          }
         }
       }
 
@@ -85,9 +96,17 @@ class Event_CreaturesOfTheForest extends Event {
         const huntingArea = gs.areas.find(
           (a) => a.currentProjects["Hunting_COTF"],
         );
-        if (!huntingArea) {
+        const lordHuntingArea = gs.areas.find(
+          (a) => a.currentProjects["Hunting_COTF_Lord"],
+        );
+
+        if (!huntingArea && !lordHuntingArea) {
           // Project completed - handle hunting results
-          this.handleHuntingCompletion(gs, huntingSubEvent);
+          if (this.phase.lordLeadingHunting) {
+            this.handleLordHuntingCompletion(gs, huntingSubEvent);
+          } else {
+            this.handleHuntingCompletion(gs, huntingSubEvent);
+          }
         }
       }
 
@@ -211,10 +230,11 @@ class Event_CreaturesOfTheForest extends Event {
         ),
       );
 
-      // Update hunting subevent description with creature count
+      // Update hunting subevent description with creature count and make it visible
       const huntingSubEvent = this.subEvents.find((se) => se.id === "hunting");
       if (huntingSubEvent) {
         huntingSubEvent.desc = `${this.phase.creatureCount} creatures have been spotted. Organize a hunting party to eliminate them.`;
+        huntingSubEvent.visible = true; // Now visible after successful scouting
       }
     }
 
@@ -389,7 +409,9 @@ function createHuntingSuccessNotification(
     id: "cotf_hunting_success",
     title: "Creatures Eliminated",
     desc: `The hunting party returned victorious! The creatures have been slain.${deathText} The forest is safe once again.`,
-    choices: () => [{ desc: deaths > 0 ? "They died heroes" : "Excellent work!" }],
+    choices: () => [
+      { desc: deaths > 0 ? "They died heroes" : "Excellent work!" },
+    ],
   };
 }
 
@@ -418,7 +440,7 @@ function createScoutingChoiceEvent(
           !gs.dailyWorkerActivity.has(npc.id),
       );
 
-      return [
+      const choices: Choice[] = [
         {
           desc: "Send the scouts",
           requirements: [{ type: "pop", min: 16, num: 4, consume: false }],
@@ -432,6 +454,8 @@ function createScoutingChoiceEvent(
             const scoutingProject: Project = {
               type: "Scouting_COTF",
               currentPhase: 1,
+
+              dailyProgress: 0,
               phases: [
                 {
                   name: "Scouting",
@@ -463,11 +487,68 @@ function createScoutingChoiceEvent(
             event.phase.scoutingStarted = true;
           },
         },
-        {
-          desc: "Not now",
-          effects: () => {},
-        },
       ];
+
+      // Add lord-led scouting option if lord has Fighter trait
+      if (gs.lord?.traits.has("Fighter")) {
+        choices.push({
+          desc: "Lead the scouting mission personally (6 days, no villager deaths)",
+          requirements: [{ type: "pop", min: 16, num: 2, consume: false }],
+          effects: (gs) => {
+            // Find a forest area or use the first area
+            const scoutingArea =
+              gs.areas.find((a) => a.type === "Forest") || gs.areas[0];
+            if (!scoutingArea) return;
+
+            // Create the lord-led scouting project (double duration)
+            const scoutingProject: Project = {
+              type: "Scouting_COTF_Lord",
+              currentPhase: 1,
+              dailyProgress: 0,
+              phases: [
+                {
+                  name: "Scouting (Lord-Led)",
+                  manDaysRequired: 12, // 2 workers * 6 days
+                  progressPercent: 0,
+                  maxDailyProgress: 16.67,
+                  requirements: [],
+                  stuck: true,
+                  occupationTitle: "Scout",
+                },
+              ],
+              outputs: [],
+              workers: new Set<number>(),
+              requirements: [],
+            };
+
+            scoutingArea.currentProjects["Scouting_COTF_Lord"] = scoutingProject;
+
+            // Assign 2 workers to the project
+            assignNPCs(gs, scoutingProject, 100, 2);
+
+            // Mark subevent as in progress
+            const scoutingSubEvent = event.subEvents.find(
+              (se) => se.id === "scouting",
+            );
+            if (scoutingSubEvent) {
+              scoutingSubEvent.inProgress = true;
+            }
+            event.phase.scoutingStarted = true;
+            event.phase.lordLeadingScouting = true;
+            event.phase.lordScoutingProgress = 0;
+
+            // Start the interactive scouting experience
+            gs.choiceEvents.push(createLordScoutingDay1Event(event));
+          },
+        } as Choice);
+      }
+
+      choices.push({
+        desc: "Not now",
+        effects: () => {},
+      });
+
+      return choices;
     },
   };
 }
@@ -562,7 +643,7 @@ function createHuntingChoiceEvent(
         },
       ];
 
-      const choices = strategies.map((strategy) => ({
+      const choices: Choice[] = strategies.map((strategy) => ({
         desc: `${strategy.name}: ${strategy.workers} workers, ${strategy.spears} spears, ${strategy.days} days`,
         requirements: [
           { type: "pop", min: 16, num: strategy.workers, consume: false },
@@ -570,7 +651,7 @@ function createHuntingChoiceEvent(
             type: "item",
             data: "Spears",
             num: strategy.spears,
-            consume: true,
+            consume: false,
           },
         ],
         effects: (gs: GameState) => {
@@ -583,6 +664,7 @@ function createHuntingChoiceEvent(
           const huntingProject: Project = {
             type: "Hunting_COTF",
             currentPhase: 1,
+            dailyProgress: 0,
             phases: [
               {
                 name: `Hunting (${strategy.name})`,
@@ -621,6 +703,67 @@ function createHuntingChoiceEvent(
         },
       }));
 
+      // Add lord-led hunting option if lord has Fighter trait
+      if (gs.lord?.traits.has("Fighter")) {
+        choices.push({
+          desc: "Lead the hunting party personally (8 days, no villager deaths, but risky for you)",
+          requirements: [
+            { type: "pop", min: 16, num: 3, consume: false },
+            {
+              type: "item",
+              data: "Spears",
+              num: 15,
+              consume: false,
+            },
+          ],
+          effects: (gs: GameState) => {
+            // Find a forest area or use the first area
+            const huntingArea =
+              gs.areas.find((a) => a.type === "Forest") || gs.areas[0];
+            if (!huntingArea) return;
+
+            // Create the lord-led hunting project (double duration of balanced hunt)
+            const huntingProject: Project = {
+              type: "Hunting_COTF_Lord",
+              currentPhase: 1,
+              dailyProgress: 0,
+              phases: [
+                {
+                  name: "Hunting (Lord-Led)",
+                  manDaysRequired: 24, // 3 workers * 8 days
+                  progressPercent: 0,
+                  maxDailyProgress: 12.5,
+                  requirements: [],
+                  stuck: true,
+                  occupationTitle: "Hunter",
+                },
+              ],
+              outputs: [],
+              workers: new Set<number>(),
+              requirements: [],
+            };
+
+            huntingArea.currentProjects["Hunting_COTF_Lord"] = huntingProject;
+
+            // Assign 3 workers to the project
+            assignNPCs(gs, huntingProject, 100, 3);
+
+            // Mark subevent as in progress
+            const huntingSubEvent = event.subEvents.find(
+              (se) => se.id === "hunting",
+            );
+            if (huntingSubEvent) {
+              huntingSubEvent.inProgress = true;
+            }
+            event.phase.lordLeadingHunting = true;
+            event.phase.lordHuntingProgress = 0;
+
+            // Start the interactive hunting experience
+            gs.choiceEvents.push(createLordHuntingDay1Event(event));
+          },
+        } as Choice);
+      }
+
       choices.push({
         desc: "Not now",
         effects: () => {},
@@ -628,5 +771,233 @@ function createHuntingChoiceEvent(
 
       return choices;
     },
+  };
+}
+
+// ===== LORD-LED SCOUTING =====
+
+// Handler for lord-led scouting completion
+Event_CreaturesOfTheForest.prototype.handleLordScoutingCompletion = function(
+  gs: GameState,
+  scoutingSubEvent: SubEvent,
+) {
+  if (!gs.lord) return;
+
+  // Calculate lord death chance based on stats
+  // Base 30% death chance, reduced by STR and DEX
+  const str = gs.lord.stats.str;
+  const dex = gs.lord.stats.dex;
+  const statBonus = (str + dex) / 14; // 0 to 1 scale assuming 7 is max per stat
+  const lordDeathChance = Math.max(0.05, 0.3 - statBonus * 0.25); // 5% to 30%
+
+  if (Math.random() < lordDeathChance) {
+    // Lord died during scouting
+    scoutingSubEvent.completed = false;
+    scoutingSubEvent.inProgress = false;
+    gs.choiceEvents.push(createLordScoutingDeathNotification());
+    killLord("Killed by forest creatures", gs);
+    return;
+  }
+
+  // Lord survived - always successful, reveal creature count
+  scoutingSubEvent.completed = true;
+  scoutingSubEvent.inProgress = false;
+  this.phase.scoutingCompleted = true;
+
+  // Random creature count between 3 and 12
+  this.phase.creatureCount = Math.floor(Math.random() * 10) + 3;
+
+  gs.choiceEvents.push(
+    createLordScoutingSuccessNotification(this.phase.creatureCount),
+  );
+
+  // Update hunting subevent
+  const huntingSubEvent = this.subEvents.find((se) => se.id === "hunting");
+  if (huntingSubEvent) {
+    huntingSubEvent.desc = `${this.phase.creatureCount} creatures have been spotted. Organize a hunting party to eliminate them.`;
+    huntingSubEvent.visible = true;
+  }
+};
+
+function createLordScoutingDay1Event(
+  event: Event_CreaturesOfTheForest,
+): ChoiceEvent {
+  return {
+    id: "cotf_lord_scout_day1",
+    title: "Into the Forest",
+    desc: "You lead your small band of scouts into the dark forest. The trees loom overhead, their branches creating shadows that seem to move. Do you proceed cautiously or quickly?",
+    choices: (gs) => {
+      return [
+        {
+          desc: "Move cautiously, watching for signs (improves survival)",
+          effects: (gs) => {
+            event.phase.lordScoutingProgress += 1;
+            // Reduce death chance slightly
+            if (gs.lord) {
+              gs.lord.stats.dex = Math.min(10, gs.lord.stats.dex + 0.5);
+            }
+          },
+        },
+        {
+          desc: "Move quickly to cover more ground (riskier)",
+          effects: (gs) => {
+            event.phase.lordScoutingProgress += 1;
+          },
+        },
+      ];
+    },
+  };
+}
+
+function createLordScoutingDeathNotification(): ChoiceEvent {
+  return {
+    id: "cotf_lord_scout_death",
+    title: "A Lord Falls",
+    desc: "The creatures ambushed your scouting party in the deep forest. Despite your best efforts, you were overwhelmed. Your companions barely escaped to tell the tale of your brave but fatal stand.",
+    choices: () => [{ desc: "..." }],
+  };
+}
+
+function createLordScoutingSuccessNotification(
+  creatureCount: number,
+): ChoiceEvent {
+  return {
+    id: "cotf_lord_scout_success",
+    title: "The Lord Returns",
+    desc: `After days in the forest, you return with crucial intelligence. You've identified approximately ${creatureCount} creatures - large, wolf-like beasts with unnatural intelligence. No villagers died under your leadership.`,
+    choices: () => [{ desc: "Now we can plan our attack" }],
+  };
+}
+
+// ===== LORD-LED HUNTING =====
+
+// Handler for lord-led hunting completion
+Event_CreaturesOfTheForest.prototype.handleLordHuntingCompletion = function(
+  gs: GameState,
+  huntingSubEvent: SubEvent,
+) {
+  if (!gs.lord) return;
+
+  // Calculate lord death chance based on stats
+  // Base 35% death chance (hunting is more dangerous than scouting)
+  const str = gs.lord.stats.str;
+  const dex = gs.lord.stats.dex;
+  const statBonus = (str + dex) / 14; // 0 to 1 scale assuming 7 is max per stat
+
+  // STR matters more in combat, DEX matters for avoiding attacks
+  const strWeight = 0.6;
+  const dexWeight = 0.4;
+  const combatStatBonus = (str / 7) * strWeight + (dex / 7) * dexWeight;
+
+  const lordDeathChance = Math.max(0.08, 0.35 - combatStatBonus * 0.27); // 8% to 35%
+
+  if (Math.random() < lordDeathChance) {
+    // Lord died during hunting
+    huntingSubEvent.completed = false;
+    huntingSubEvent.inProgress = false;
+    gs.choiceEvents.push(createLordHuntingDeathNotification());
+    killLord("Killed by forest creatures", gs);
+    return;
+  }
+
+  // Lord survived - always successful, no villager deaths
+  huntingSubEvent.completed = true;
+  huntingSubEvent.inProgress = false;
+  this.phase.huntingCompleted = true;
+
+  gs.choiceEvents.push(createLordHuntingSuccessNotification());
+};
+
+function createLordHuntingDay1Event(
+  event: Event_CreaturesOfTheForest,
+): ChoiceEvent {
+  const creatureCount = event.phase.creatureCount || 0;
+  return {
+    id: "cotf_lord_hunt_day1",
+    title: "The Hunt Begins",
+    desc: `You gather your hunting party - 3 skilled villagers and yourself, armed with spears. The creatures number ${creatureCount}, and they're dangerous. How do you approach the hunt?`,
+    choices: (gs) => {
+      return [
+        {
+          desc: "Set traps and ambush points (safer, but takes longer)",
+          effects: (gs) => {
+            event.phase.lordHuntingProgress += 1;
+            // Reduce death chance slightly
+            if (gs.lord) {
+              gs.lord.stats.str = Math.min(10, gs.lord.stats.str + 0.3);
+            }
+            // Add follow-up event
+            setTimeout(() => {
+              if (gs.areas.some((a) => a.currentProjects["Hunting_COTF_Lord"])) {
+                gs.choiceEvents.push(createLordHuntingMidEvent(event));
+              }
+            }, 0);
+          },
+        },
+        {
+          desc: "Track and engage directly (faster but riskier)",
+          effects: (gs) => {
+            event.phase.lordHuntingProgress += 1;
+            // No stat bonus
+            // Add follow-up event
+            setTimeout(() => {
+              if (gs.areas.some((a) => a.currentProjects["Hunting_COTF_Lord"])) {
+                gs.choiceEvents.push(createLordHuntingMidEvent(event));
+              }
+            }, 0);
+          },
+        },
+      ];
+    },
+  };
+}
+
+function createLordHuntingMidEvent(
+  event: Event_CreaturesOfTheForest,
+): ChoiceEvent {
+  return {
+    id: "cotf_lord_hunt_mid",
+    title: "First Blood",
+    desc: "You've encountered a pack of the creatures. They're larger than wolves, with glowing eyes and unnaturally sharp claws. One lunges at you!",
+    choices: (gs) => {
+      return [
+        {
+          desc: "Use your spear defensively, wait for an opening",
+          effects: (gs) => {
+            event.phase.lordHuntingProgress += 1;
+            if (gs.lord) {
+              gs.lord.stats.dex = Math.min(10, gs.lord.stats.dex + 0.3);
+            }
+          },
+        },
+        {
+          desc: "Attack aggressively to intimidate the pack",
+          effects: (gs) => {
+            event.phase.lordHuntingProgress += 1;
+            if (gs.lord) {
+              gs.lord.stats.str = Math.min(10, gs.lord.stats.str + 0.3);
+            }
+          },
+        },
+      ];
+    },
+  };
+}
+
+function createLordHuntingDeathNotification(): ChoiceEvent {
+  return {
+    id: "cotf_lord_hunt_death",
+    title: "A Lord Falls in Battle",
+    desc: "The creatures proved too numerous and too vicious. In a desperate last stand, you gave your life so your companions could escape. They returned to tell of your bravery, but the village mourns the loss of their leader.",
+    choices: () => [{ desc: "..." }],
+  };
+}
+
+function createLordHuntingSuccessNotification(): ChoiceEvent {
+  return {
+    id: "cotf_lord_hunt_success",
+    title: "Victorious Return",
+    desc: "After days of fierce combat, you return bloodied but victorious. Every creature has been slain. Your companions speak in awe of your combat prowess, and not a single villager fell under your command. The forest is safe once more.",
+    choices: () => [{ desc: "The deed is done" }],
   };
 }

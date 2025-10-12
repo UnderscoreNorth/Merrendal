@@ -15,6 +15,7 @@ export type ProjectPhase = {
   requireOperator?: "OR";
   occupationTitle?: string;
   stuck: boolean;
+  worksAtNight?: boolean; // If true, can work during Evening period. Defaults to false.
 };
 
 export type ProjectArgs = {
@@ -48,6 +49,7 @@ export type Project = {
   outputs: ProjectOutput[];
   workers: Set<number>;
   requirements: Requirement[];
+  dailyProgress: number;
 };
 
 export type ProjectType = {

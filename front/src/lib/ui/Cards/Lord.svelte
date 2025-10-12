@@ -9,6 +9,15 @@
     if (trust < 1200) return "Trustful";
     return "Loyal";
   }
+  function getAuthorityType(authority: number) {
+    if (authority < 200) return "Anarchy";
+    if (authority < 400) return "Defiant";
+    if (authority < 600) return "Unruly";
+    if (authority < 800) return "Orderly";
+    if (authority < 1000) return "Dutiful";
+    if (authority < 1200) return "Submissive";
+    return "Sovereign";
+  }
 </script>
 
 {#if $game.lord}
@@ -40,7 +49,8 @@
     </div>
   </div>
   <hr />
-  Village Trust: {getTrustType($game.village.trust)}
+  Village Trust: {getTrustType($game.village.trust)}<br />
+  Authority: {getAuthorityType($game.village.authority)}
 {/if}
 
 <style>

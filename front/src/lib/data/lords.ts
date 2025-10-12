@@ -4,7 +4,7 @@ import { goals, type Goal } from "./goals";
 import { type ItemRecord, type ItemName } from "./items";
 import { generateFName, type Person } from "./person";
 import { type Status } from "./status";
-export type Trait = "Patient" | "Inpatient" | "Kind" | "Cruel";
+export type Trait = "Patient" | "Inpatient" | "Kind" | "Cruel" | "Alchemy" | "Fighter";
 
 export class Lord implements Person {
   id: string;
@@ -32,6 +32,7 @@ export class Lord implements Person {
     born: number;
     died: number;
   };
+  logs: Array<{ year: number; day: number; msg: string; tags: string[] }>; // Archived logs recorded by archivist
 
   constructor(
     id: string,
@@ -58,6 +59,7 @@ export class Lord implements Person {
     this.reign = reign;
     this.date = date;
     this.reignStats = { born: 0, died: 0 };
+    this.logs = [];
   }
 }
 export type LordBackground = keyof typeof lordBackgrounds;
@@ -111,6 +113,16 @@ export function generateLords() {
       recordLoop(lordBackgrounds).map(([i, j]) => [i, j.appearanceWeight]),
     );
 
+    // Determine traits based on background
+    const traits = new Set<Trait>();
+    if (
+      background === "Adventurer" ||
+      background === "General" ||
+      background === "Mercenary Leader"
+    ) {
+      traits.add("Fighter");
+    }
+
     const lord = new Lord(
       "Lord" + Math.random().toFixed(2),
       generateFName(),
@@ -125,7 +137,7 @@ export function generateLords() {
       },
       background,
       pick(lordBackgrounds[background].goals),
-      new Set(),
+      traits,
       0,
       { year: 0, day: 1 },
     );

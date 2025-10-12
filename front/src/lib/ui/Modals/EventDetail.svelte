@@ -61,27 +61,31 @@
 </div>
 
 {#if event.subEvents && event.subEvents.length > 0}
-  <hr />
-  <h2>Available Actions</h2>
-  <div class="subevents">
-    {#key $game}
-      {#each event.subEvents as subEvent}
-        <button
-          class="subevent-button"
-          class:completed={subEvent.completed}
-          class:in-progress={subEvent.inProgress && !subEvent.completed}
-          on:click={() => handleSubEventClick(subEvent.id)}
-          disabled={subEvent.completed || subEvent.inProgress}
-        >
-          <div class="subevent-header">
-            <span class="subevent-title">{getSubEventButtonText(subEvent)}</span
-            >
-          </div>
-          <div class="subevent-desc">{subEvent.desc}</div>
-        </button>
-      {/each}
-    {/key}
-  </div>
+  {@const visibleSubEvents = event.subEvents.filter((se) => se.visible)}
+  {#if visibleSubEvents.length > 0}
+    <hr />
+    <h2>Available Actions</h2>
+    <div class="subevents">
+      {#key $game}
+        {#each visibleSubEvents as subEvent}
+          <button
+            class="subevent-button"
+            class:completed={subEvent.completed}
+            class:in-progress={subEvent.inProgress && !subEvent.completed}
+            on:click={() => handleSubEventClick(subEvent.id)}
+            disabled={subEvent.completed || subEvent.inProgress}
+          >
+            <div class="subevent-header">
+              <span class="subevent-title"
+                >{getSubEventButtonText(subEvent)}</span
+              >
+            </div>
+            <div class="subevent-desc">{subEvent.desc}</div>
+          </button>
+        {/each}
+      {/key}
+    </div>
+  {/if}
 {/if}
 
 <style>

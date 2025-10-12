@@ -3,7 +3,7 @@ import type { Project, ProjectPhase } from "../data/projects/project";
 import { recordLoop } from "../util/recordLoop";
 import { log } from "./log";
 import { type Area } from "$lib/data/areas";
-import { assignNPCs, unassignNPC } from "$lib/data/npcs";
+import { assignNPCs, unassignNPC, increaseSkill } from "$lib/data/npcs";
 import { capitalize } from "$lib/util/capitalize";
 import { type Requirement } from "$lib/data/requirement";
 
@@ -11,11 +11,13 @@ export function processProject(gs: GameState, area: Area, project: Project) {
   const currentPhase = project.phases[project.currentPhase - 1];
   if (!currentPhase) return;
   if (currentPhase.progressPercent < 100) {
+    // Check if work can be done during this time period
+    const canWork =
+      gs.currentPeriod !== "Evening" || currentPhase.worksAtNight === true;
+    if (!canWork) return;
+
     // Check if phase requirements are met
     if (checkRequirements(gs, area, project, "currentPhase")) {
-      Array.from(project.workers).forEach((i) => {
-        gs.dailyWorkerActivity.add(i.toString());
-      });
       if (currentPhase.building) {
         const building = area.buildings.filter(
           (i) => i.type == currentPhase.building && i.status == "Built",
@@ -31,7 +33,6 @@ export function processProject(gs: GameState, area: Area, project: Project) {
           100,
           currentPhase.progressPercent + dailyProgress,
         );
-
         // Check if phase is completed
         if (currentPhase.progressPercent >= 100) {
           currentPhase.progressPercent = 100;
@@ -84,9 +85,9 @@ function calculateDailyProgress(
   phase: ProjectPhase,
 ): number {
   // Get workers assigned to this project
-  const assignedWorkers = gs.npcs.filter((i) =>
-    project.workers.has(Number(i.id)),
-  );
+  const assignedWorkers = gs.npcs
+    .filter((i) => project.workers.has(Number(i.id)))
+    .filter((npc) => !gs.dailyWorkerActivity.has(npc.id));
 
   if (assignedWorkers.length === 0) return 0;
 
@@ -95,12 +96,22 @@ function calculateDailyProgress(
     (sum, worker) => sum + 1, // + getStat(worker, "str"),
     0,
   );
-
+  // Mark workers as active and grant skill increases
+  assignedWorkers.forEach((npc) => {
+    gs.dailyWorkerActivity.add(npc.id);
+    if (Math.random() < 0.5) {
+      const occupation = npc.job.title;
+      increaseSkill(npc, occupation, 0.02);
+    }
+  });
   // Base daily progress is based on man-days required and worker strength
   // Assuming 1 strength point = 1 man-day of work per day
-  const baseDailyProgress = (totalStrength / phase.manDaysRequired) * 100;
-
-  return Math.min(baseDailyProgress, phase.maxDailyProgress ?? 100);
+  // Halved because there are now 3 work periods per day instead of 1
+  const baseDailyProgress = (totalStrength / phase.manDaysRequired) * 100 * 0.5;
+  return Math.min(
+    baseDailyProgress,
+    phase.maxDailyProgress ? phase.maxDailyProgress / 2 : 100,
+  );
 }
 
 function completeProject(gs: GameState, area: Area, project: Project) {

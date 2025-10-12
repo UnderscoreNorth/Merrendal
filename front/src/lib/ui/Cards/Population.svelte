@@ -1,6 +1,9 @@
 <script lang="ts">
   import { game } from "$lib/stores";
-  $: occupations = Array.from(new Set($game.npcs.map((i) => i.job.title)));
+  $: occupations = Array.from(
+    new Set($game.npcs.filter((npc) => npc.metByLord).map((i) => i.job.title)),
+  );
+  $: npcs = $game.npcs.filter((npc) => npc.metByLord);
   function getArray(ageDecade: number) {
     let arr = [];
     for (let i = ageDecade; i >= ageDecade - 9; i--) {
@@ -14,25 +17,16 @@
   <table style:height={"min-content"}>
     {#each [...occupations.filter((i) => i !== "None").sort()] as job}
       <tr
-        ><th>{job}</th><td
-          >{$game.npcs.filter((i) => i.job.title == job).length}</td
-        >
+        ><th>{job}</th><td>{npcs.filter((i) => i.job.title == job).length}</td>
       </tr>
     {/each}
     <tr
       ><th>Unemployed</th><td
-        >{$game.npcs.filter((i) => i.job.title == "None" && i.age >= 16)
-          .length}</td
+        >{npcs.filter((i) => i.job.title == "None" && i.age >= 16).length}</td
       ></tr
     >
-    <tr
-      ><th>Adults</th><td>{$game.npcs.filter((i) => i.age >= 16).length}</td
-      ></tr
-    >
-    <tr
-      ><th>Children</th><td>{$game.npcs.filter((i) => i.age < 16).length}</td
-      ></tr
-    >
+    <tr><th>Adults</th><td>{npcs.filter((i) => i.age >= 16).length}</td></tr>
+    <tr><th>Children</th><td>{npcs.filter((i) => i.age < 16).length}</td></tr>
     <tr><th>Dead</th><td>{$game.deadNpcs.length}</td></tr>
   </table>
   <div>
@@ -43,7 +37,7 @@
           {#each getArray(ageDecade) as age}
             <div
               class="ageBar"
-              style:width={`${$game.npcs.filter((i) => i.age == age).length * 7}px`}
+              style:width={`${npcs.filter((i) => i.age == age).length * 7}px`}
             ></div>
           {/each}
         </div>

@@ -11,6 +11,7 @@ export function killLord(cause: string, gs: GameState) {
   const lord = gs.lord;
   if (lord == undefined) return;
   lord.causeOfDeath = cause;
+  gs.log = [];
   log(gs, `<i>Lord ${lord.fName}</i> died of <i>${cause}</i>`, ["Mortality"]);
   gs.pastLords.push(lord);
   gs.lord = undefined;
@@ -82,6 +83,10 @@ export function processBirths(gs: GameState) {
       Math.pow(1.001, gs.npcs.filter((i) => i.age >= 16 && i.age < 50).length) -
       1;
     if (Math.random() < birthChance) {
+      // Find village for home area
+      const village = gs.areas.find((a) => a.type === "Village");
+      const homeAreaId = village ? village.areaID : gs.areas[0]?.areaID || "";
+
       const newNPC: NPC = {
         id: (gs.npcs.length + gs.deadNpcs.length).toString(),
         fName: pick(firstNames),
@@ -99,7 +104,10 @@ export function processBirths(gs: GameState) {
         hunger: 0,
         statuses: {},
         nameKnown: false,
+        metByLord: false,
+        homeAreaId,
         relations: {},
+        skills: {},
       };
       gs.npcs.push(newNPC);
       log(gs, `<i>${newNPC.fName}</i> was born.`, ["Mortality"]);

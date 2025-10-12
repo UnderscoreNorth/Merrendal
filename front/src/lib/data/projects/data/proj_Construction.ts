@@ -18,6 +18,7 @@ export class ConstructionProject implements Project {
   outputs: ProjectOutput[];
   workers: Set<number> = new Set();
 
+  dailyProgress = 0;
   requirements: Requirement[];
 
   constructor({ area, building }: { area: Area; building: Building }) {

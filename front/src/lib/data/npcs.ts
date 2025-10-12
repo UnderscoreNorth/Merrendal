@@ -6,6 +6,8 @@ import { type Project } from "./projects/project";
 
 export type NPC = Person & {
   nameKnown: boolean;
+  metByLord: boolean; // Has the lord met this villager?
+  homeAreaId: string; // ID of the area this NPC calls home
   relations: Record<
     string,
     {
@@ -18,6 +20,7 @@ export type NPC = Person & {
     priority: number;
     attached?: Building | Project;
   };
+  skills: Record<string, number>; // occupation -> skill level (0-100)
 };
 export const trustLevels = [
   "Loyal",
@@ -66,6 +69,17 @@ export function getStat(npc: NPC, stat: "str" | "dex") {
   return base;
 }
 
+export function getSkill(npc: NPC, occupation: string): number {
+  return npc.skills[occupation] || 0;
+}
+
+export function increaseSkill(npc: NPC, occupation: string, amount: number) {
+  if (!npc.skills[occupation]) {
+    npc.skills[occupation] = 0;
+  }
+  npc.skills[occupation] = Math.min(100, npc.skills[occupation] + amount);
+}
+
 export function unassignNPC(npc: NPC) {
   if (npc.job.attached) npc.job.attached.workers.delete(Number(npc.id));
   npc.job = {
@@ -89,6 +103,8 @@ export function assignNPCs(
     // It's a building - find the area containing it
     targetArea = gs.areas.find((area) => area.buildings.includes(target));
     title = target.occupationTitle ?? "";
+    if ("stuck" in target && typeof target.stuck == "boolean")
+      stuck = target.stuck;
   } else if ("phases" in target) {
     // It's a project - find the area containing it
     targetArea = gs.areas.find((area) =>
@@ -130,7 +146,16 @@ export function assignNPCs(
           npc.age >= 16 &&
           !gs.dailyWorkerActivity.has(npc.id),
       )
-      .sort((a, b) => a.job.priority - b.job.priority)[0];
+      .sort((a, b) => {
+        // First, sort by priority (lower is better, so ascending)
+        const priorityDiff = a.job.priority - b.job.priority;
+        if (priorityDiff !== 0) return priorityDiff;
+
+        // If priorities are equal, sort by skill (higher is better, so descending)
+        const skillA = getSkill(a, title);
+        const skillB = getSkill(b, title);
+        return skillB - skillA;
+      })[0];
     if (npc) {
       if (npc.job.attached) npc.job.attached.workers.delete(Number(npc.id));
       assigned++;

@@ -22,6 +22,7 @@
     cE = $game.choiceEvents[0];
     if (!$game.choiceEvents.length) {
       $game.pending = false;
+      return;
     } else {
       generateChoices();
     }
@@ -36,38 +37,42 @@
     }
   }
   function autoPick() {
-    pickChoice(pick(cE.choices($game).filter((c) => c.canPick)));
+    pickChoice(pick(choices.filter((c) => c.canPick)));
   }
 </script>
 
 {#if cE}
-  <h1>{cE.title}</h1>
-  <hr />
-  <p>{cE.desc}</p>
-  <div class="choices">
-    {#each choices as choice}
-      <!-- svelte-ignore a11y-mouse-events-have-key-events -->
-      <button
-        on:click={() => {
-          pickChoice(choice);
-        }}
-        disabled={choice.canPick == false}
-        >{choice.desc}{#if choice.requirements && choice.requirements.length}
-          {" "}-
-          <span class="requirements">
-            {#each choice.requirements as r}
-              {#if r.type == "pop"}
-                {r.consume ? "Kill" : "Requires"} {r.num} Villagers
-              {:else if r.type == "item"}
-                {r.consume ? "Uses" : "Requires"} {r.num} {r.data}
-              {:else if r.type == "trait"}
-                {"Requires"} {r.trait}
-              {/if}
-            {/each}</span
-          >
-        {/if}</button
-      >
-    {/each}
+  <div style:max-width="50rem">
+    <h1>{cE.title}</h1>
+    <hr />
+    <p>{cE.desc}</p>
+    <div class="choices">
+      {#each choices as choice}
+        <!-- svelte-ignore a11y-mouse-events-have-key-events -->
+        <button
+          on:click={() => {
+            pickChoice(choice);
+          }}
+          disabled={choice.canPick == false}
+          >{choice.desc}{#if choice.requirements && choice.requirements.length}
+            {" "}-
+            <span class="requirements">
+              {#each choice.requirements as r}
+                {#if r.type == "pop"}
+                  {r.consume ? "Kill" : "Requires"} {r.num} Villagers
+                {:else if r.type == "item"}
+                  {r.consume ? "Uses" : "Requires"} {r.num} {r.data}
+                {:else if r.type == "trait"}
+                  {"Requires"} {r.trait}
+                {:else if r.type == "building"}
+                  {"Requires"} {r.data}
+                {/if}
+              {/each}</span
+            >
+          {/if}</button
+        >
+      {/each}
+    </div>
   </div>
 {/if}
 

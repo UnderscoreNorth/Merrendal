@@ -11,6 +11,7 @@ export type BaseBuilding = {
   maxPops: number;
   workers: Set<number>;
   occupationTitle?: string;
+  stuck?: boolean;
 };
 export type BuiltBuilding = BaseBuilding & {
   status: "Built";
@@ -25,6 +26,7 @@ export type BuildingTemplate = {
   maxPops: ((area: Area) => number) | number;
   daysToComplete: number;
   occupationTitle?: string;
+  stuck?: boolean;
 };
 export const buildingTypes = {
   Forge: {
@@ -56,6 +58,12 @@ export const buildingTypes = {
     daysToComplete: 28,
     occupationTitle: "Miner",
   },
+  "Stone Quarry": {
+    requirements: { Lumber: 40 },
+    maxPops: 10,
+    daysToComplete: 7,
+    occupationTitle: "Quarryman",
+  },
   "Farm House": {
     requirements: { Lumber: 50 },
     maxPops: 0,
@@ -73,6 +81,39 @@ export const buildingTypes = {
     maxPops: (area) => Math.ceil(area.acres / 300),
     daysToComplete: 1,
     occupationTitle: "Hunter",
+  },
+  // Alchemical buildings
+  Laboratory: {
+    requirements: { Lumber: 50, Stone: 20 },
+    maxPops: 3,
+    daysToComplete: 14,
+    occupationTitle: "Alchemist",
+  },
+  "Sulfur Mine": {
+    requirements: { Lumber: 100 },
+    maxPops: 8,
+    daysToComplete: 28,
+    occupationTitle: "Sulfur Miner",
+  },
+  "Mercury Mine": {
+    requirements: { Lumber: 100 },
+    maxPops: 8,
+    daysToComplete: 28,
+    occupationTitle: "Mercury Miner",
+  },
+  "Grand Athanor": {
+    requirements: { Lumber: 200, Stone: 100, "Iron Ingots": 50 },
+    maxPops: 10,
+    daysToComplete: 90,
+    occupationTitle: "Master Alchemist",
+  },
+  // Manor buildings
+  Archive: {
+    requirements: { Lumber: 30, Stone: 10 },
+    maxPops: 1,
+    daysToComplete: 14,
+    occupationTitle: "Archivist",
+    stuck: true,
   },
 } as const satisfies Record<string, BuildingTemplate>;
 export function ruinBuilding(gs: GameState, building: Building) {

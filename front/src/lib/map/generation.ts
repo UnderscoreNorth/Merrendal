@@ -132,7 +132,7 @@ export class Map {
       }
       //Mountains
       if (Math.random() > mountainChance) {
-        mountainChance += 0.1;
+        //mountainChance += 0.1;
         let rangeLength = rollRange(6, Math.floor(this.diameter * 1.75));
         console.log({ rangeLength });
         if (rangeLength <= 5) {
@@ -213,7 +213,7 @@ export class Map {
     } while (
       numLand <
         (3 * Math.pow(this.diameter, 2) - 3 * this.diameter + 1) / minLand &&
-      attempt < 1000
+      attempt < 2
     );
     //Cut off land except for one side
     let sides: Record<"ne" | "e" | "se" | "w" | "nw" | "sw", TerrainTile[]> = {

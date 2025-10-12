@@ -17,6 +17,8 @@ export class IronIngotProject implements Project {
   outputs: ProjectOutput[];
   workers: Set<number> = new Set();
   requirements: Requirement[];
+
+  dailyProgress = 0;
   constructor({ area }: { area: Area }) {
     if (!area) throw "Building exists without area";
 

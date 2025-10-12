@@ -19,6 +19,8 @@
   import Events from "$lib/ui/Cards/Events.svelte";
   import AddNeedModal from "$lib/ui/Modals/AddNeedModal.svelte";
   import EventDetail from "$lib/ui/Modals/EventDetail.svelte";
+  import PopulationModal from "$lib/ui/Modals/PopulationModal.svelte";
+  import AreaDetail from "$lib/ui/Modals/AreaDetail.svelte";
   init();
 </script>
 
@@ -41,19 +43,23 @@
         <ChoiceEvent />
       </Card>
     {/if}
-    {#if $openModals["pastLords"]}
-      <Card draggable={true} padding={1}>
-        <PastLords />
-      </Card>
-    {/if}
-    {#if $openModals["addNeeds"]}
-      <Card draggable={true} padding={1}>
-        <AddNeedModal />
-      </Card>
-    {/if}
+    <Card draggable={true} padding={1} modal="pastLords">
+      <PastLords />
+    </Card>
+    <Card draggable={true} padding={1} modal="addNeeds">
+      <AddNeedModal />
+    </Card>
     {#if $openModals["eventDetail"] !== undefined}
-      <Card draggable={true} padding={1}>
+      <Card draggable={true} padding={1} modal="eventDetail">
         <EventDetail />
+      </Card>
+    {/if}
+    <Card draggable={true} padding={1} modal="population">
+      <PopulationModal />
+    </Card>
+    {#if $openModals["areaDetail"] !== undefined}
+      <Card draggable={true} padding={1} modal="areaDetail">
+        <AreaDetail area={$openModals["areaDetail"]} />
       </Card>
     {/if}
   </Modal>
@@ -67,7 +73,12 @@
       <Time /></Card
     >
     <Card>
-      <Collapsible headerName="Population" headerType={2} hidden={true}>
+      <Collapsible
+        headerName="Population"
+        headerType={2}
+        hidden={true}
+        modal="population"
+      >
         <Population />
       </Collapsible>
     </Card>

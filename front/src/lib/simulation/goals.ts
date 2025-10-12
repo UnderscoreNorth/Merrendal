@@ -46,6 +46,7 @@ export function procressGoals(gs: GameState) {
         }
       });
       goal.effect(gs);
+      gs.log = [];
       log(
         gs,
         `Lord ${gs.lord.fName}, the ${gs.lord.background}, achieved his goal: ${gs.lord.goal.desc}`,

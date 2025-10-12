@@ -42,7 +42,7 @@ export const areaTypes: Record<
     allowedProjects: {},
   },
   Manor: {
-    allowedBuildings: [],
+    allowedBuildings: ["Archive", "Laboratory", "Grand Athanor"],
     allowedProjects: {},
   },
   Village: {
@@ -50,8 +50,8 @@ export const areaTypes: Record<
     allowedProjects: {},
   },
   Mountain: {
-    allowedBuildings: ["Mine"],
-    allowedProjects: { Prospecting: proj_Prospecting },
+    allowedBuildings: ["Mine", "Stone Quarry", "Mercury Mine", "Sulfur Mine"],
+    allowedProjects: {},
   },
 };
 

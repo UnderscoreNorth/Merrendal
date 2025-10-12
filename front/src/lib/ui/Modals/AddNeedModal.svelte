@@ -68,8 +68,9 @@
 
 <div class="modal-header">
   <h2>Add New Need</h2>
-  <button class="close-btn" on:click={() => ($openModals["addNeeds"] = false)}
-    >×</button
+  <button
+    class="close-btn"
+    on:click={() => ($openModals["addNeeds"] = undefined)}>×</button
   >
 </div>
 

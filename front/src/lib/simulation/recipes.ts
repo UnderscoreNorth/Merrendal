@@ -3,7 +3,7 @@ import type { Recipe } from "$lib/data/recipes";
 import { type ItemName, items } from "$lib/data/items";
 import { type GameState } from "$lib/stores";
 import { type Building } from "$lib/data/buildings";
-import { assignNPCs } from "$lib/data/npcs";
+import { assignNPCs, increaseSkill, getSkill } from "$lib/data/npcs";
 
 export function findBuildingsForRecipe(gs: GameState, recipe: Recipe) {
   const availableBuildings = [];
@@ -99,6 +99,17 @@ export function processRecipe(
   batches: number,
   priority: number,
 ) {
+  // Check if work can be done during this time period
+  const canWork =
+    gs.currentPeriod !== "Evening" || recipe.worksAtNight === true;
+  if (!canWork) return;
+
+  // Special handling for Archive building
+  if (building.type === "Archive") {
+    processArchiveRecipe(gs, building);
+    return;
+  }
+
   const availableBatches = Math.min(
     batches,
     Math.min(
@@ -130,12 +141,70 @@ export function processRecipe(
     const npc = availableWorkers[i];
     if (!npc) break;
     gs.dailyWorkerActivity.add(npc.id);
+
+    // Consume inputs
     for (const input of recipe.input) {
       gs.inventory[input.type] = (gs.inventory[input.type] || 0) - input.num;
     }
+
+    // Skill-based double yield chance (skill% chance for 2x output)
+    const occupation = npc.job.title;
+    const skill = getSkill(npc, occupation);
+    const doubleYield = Math.random() * 100 < skill;
+    const yieldMultiplier = doubleYield ? 2 : 1;
+
+    // Produce outputs
     for (const output of recipe.output) {
-      gs.inventory[output.type] = (gs.inventory[output.type] || 0) + output.num;
+      gs.inventory[output.type] =
+        (gs.inventory[output.type] || 0) + output.num * yieldMultiplier;
     }
+
+    // 50% chance to increase skill by 0.01%
+    if (Math.random() < 0.5) {
+      increaseSkill(npc, occupation, 0.02);
+    }
+  }
+}
+
+/**
+ * Special recipe processing for Archive building
+ * Copies game logs to lord's logs array while archivist is working
+ */
+function processArchiveRecipe(gs: GameState, building: Building) {
+  if (!gs.lord) return;
+
+  // Check if there's an archivist working
+  const availableWorkers = gs.npcs.filter(
+    (npc) =>
+      building.workers.has(Number(npc.id)) &&
+      !gs.dailyWorkerActivity.has(npc.id),
+  );
+
+  if (availableWorkers.length === 0) {
+    // Try to assign an archivist if none are working
+    const remainingSlots = building.maxPops - building.workers.size;
+    assignNPCs(gs, building, 5, remainingSlots); // Medium priority
+    return;
+  }
+
+  // Mark archivist as having worked
+  const archivist = availableWorkers[0];
+  gs.dailyWorkerActivity.add(archivist.id);
+
+  // Copy new logs from game log to lord's archive
+  // Only copy logs that aren't already in the lord's logs
+  const lastArchivedLogIndex = gs.lord.logs.length;
+
+  // Get any new logs from the game log that haven't been archived yet
+  for (let i = lastArchivedLogIndex; i < gs.log.length; i++) {
+    const logEntry = gs.log[i];
+    // Copy the log entry to the lord's archive
+    gs.lord.logs.push({ ...logEntry });
+  }
+
+  // 50% chance to increase skill
+  if (Math.random() < 0.5) {
+    increaseSkill(archivist, "Archivist", 0.02);
   }
 }
 

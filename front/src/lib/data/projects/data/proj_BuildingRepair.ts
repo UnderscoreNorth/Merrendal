@@ -17,7 +17,7 @@ export class BuildingRepairProject implements Project {
   phases: ProjectPhase[];
   outputs: ProjectOutput[];
   workers: Set<number> = new Set();
-
+  dailyProgress = 0;
   requirements: Requirement[];
 
   constructor({ area, building }: { area: Area; building: Building }) {

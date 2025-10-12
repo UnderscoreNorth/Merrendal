@@ -19,6 +19,7 @@ export class ProspectingProject implements Project {
   workers: Set<number> = new Set();
   requirements: Requirement[];
 
+  dailyProgress = 0;
   constructor({ gs, area }: { gs: GameState; area: Area }) {
     if (!area) throw "Area required for prospecting";
     if (area.type !== "Mountain")

@@ -8,6 +8,7 @@
   import { pText } from "$lib/util/pText";
   import { recordLoop } from "$lib/util/recordLoop";
   import { pick } from "$lib/util/rolls";
+  import { event_AlchemicalObsession } from "$lib/data/events/alchemicalObsession";
   const lords = generateLords();
   const pickedLord = pick(lords);
   if ($autoPlay) {
@@ -44,6 +45,13 @@
       ["Event"],
     );
     $game.choiceEvents.push(choiceMap["First Impression"]);
+
+    // Trigger Alchemical Obsession event if lord has "Discover Alchemy" goal
+    if (lord.goal.name === "Discover Alchemy") {
+      $game.activeEvents.push(
+        new event_AlchemicalObsession.event("Alchemical Obsession"),
+      );
+    }
   }
 </script>
 

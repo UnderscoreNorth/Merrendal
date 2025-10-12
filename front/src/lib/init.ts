@@ -12,32 +12,6 @@ export function init() {
   let num = Math.ceil(Math.random() * 30) + 20;
   const npcs: NPC[] = [];
   let bread = 0;
-  for (let i = 0; i <= num; i++) {
-    const age = Math.ceil(Math.random() * 60);
-    bread += age > 16 ? 2 * 365 : 1.5 * 365;
-    const npc: NPC = {
-      id: i.toString(),
-      fName: firstNames[i],
-      nameKnown: false,
-      relations: {},
-      age,
-      job: {
-        title: "None",
-        priority: 0,
-        stuck: false,
-      },
-      birthday: rollRange(1, 365),
-      stats: {
-        str: 0,
-        dex: 0,
-      },
-      statuses: {},
-      hunger: 0,
-    };
-    npc.stats.str = rollNewSTR(npc);
-    npc.stats.dex = rollNewDEX(npc);
-    npcs.push(npc);
-  }
   const mapSize = 15;
   const mapData = new Map(mapSize, []);
   const areas: Area[] = [];
@@ -74,6 +48,7 @@ export function init() {
   }
 
   // Create village
+  let villageId = "";
   for (let i in mapData.villages) {
     const villageTile = mapData.villages[i];
     const village: Area = {
@@ -86,7 +61,53 @@ export function init() {
       loc: { q: villageTile.q, s: villageTile.s, r: villageTile.r },
     };
     areas.push(village);
+    villageId = village.areaID;
   }
+
+  // Create Manor
+  const manorTile = mapData.villages[0]; // Place near first village
+  const manor: Area = {
+    areaID: "Manor",
+    type: "Manor",
+    acres: rollRange(10, 20),
+    buildings: [],
+    yieldEff: {},
+    currentProjects: {},
+    loc: { q: manorTile.q + 1, s: manorTile.s, r: manorTile.r - 1 },
+  };
+  areas.push(manor);
+
+  // Initialize NPCs after areas are created so we can assign home areas
+  for (let i = 0; i <= num; i++) {
+    const age = Math.ceil(Math.random() * 60);
+    bread += age > 16 ? 2 * 365 : 1.5 * 365;
+    const npc: NPC = {
+      id: i.toString(),
+      fName: firstNames[i],
+      nameKnown: false,
+      metByLord: false,
+      homeAreaId: villageId, // All NPCs start in the village
+      relations: {},
+      age,
+      job: {
+        title: "None",
+        priority: 0,
+        stuck: false,
+      },
+      birthday: rollRange(1, 365),
+      stats: {
+        str: 0,
+        dex: 0,
+      },
+      statuses: {},
+      hunger: 0,
+      skills: {},
+    };
+    npc.stats.str = rollNewSTR(npc);
+    npc.stats.dex = rollNewDEX(npc);
+    npcs.push(npc);
+  }
+
   const needs: Record<string, Need> = {};
   const hunterHutNeed: Need = {
     type: "building",
@@ -106,7 +127,9 @@ export function init() {
     priorInventory: {},
     currentDay: 1,
     currentYear: 0,
+    currentPeriod: "Morning",
     dailyWorkerActivity: new Set(),
+    areaActionTaken: false,
     log: [],
     season: "Spring",
     mapSize,

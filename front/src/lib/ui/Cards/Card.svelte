@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { openModals } from "$lib/stores";
+
   export let draggable = false;
   export let padding = 0.5;
+  export let modal = "";
   let card: HTMLDivElement;
   let x = 0;
   let y = 0;
@@ -22,28 +25,31 @@
   }
 </script>
 
-<div
-  bind:this={card}
-  class="card"
-  {draggable}
-  style:padding={padding + "rem"}
-  on:dblclick={() => {
-    card.style.position = "";
-  }}
-  on:dragstart={(e) => {
-    x = e.clientX - card.getBoundingClientRect().x;
-    y = e.clientY - card.getBoundingClientRect().y;
-    card.style.left = e.clientX - x + "px";
-    card.style.top = e.clientY - y + "px";
-    card.style.position = "absolute";
-    //@ts-ignore
-    e.dataTransfer?.setDragImage(card.cloneNode(true), 0, 0);
-  }}
-  on:drag={drag}
-  on:dragend={drag}
->
-  <slot />
-</div>
+{#if modal == "" || $openModals[modal] !== undefined}
+  <div
+    bind:this={card}
+    class="card"
+    {draggable}
+    style:padding={padding + "rem"}
+    style:position="relative"
+    on:dblclick={() => {
+      card.style.position = "relative";
+    }}
+    on:dragstart={(e) => {
+      x = e.clientX - card.getBoundingClientRect().x;
+      y = e.clientY - card.getBoundingClientRect().y;
+      card.style.left = e.clientX - x + "px";
+      card.style.top = e.clientY - y + "px";
+      card.style.position = "absolute";
+      //@ts-ignore
+      e.dataTransfer?.setDragImage(card.cloneNode(true), 0, 0);
+    }}
+    on:drag={drag}
+    on:dragend={drag}
+  >
+    <slot />
+  </div>
+{/if}
 
 <style>
   .card {

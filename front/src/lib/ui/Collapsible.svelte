@@ -1,7 +1,11 @@
 <script lang="ts">
+  import { openModals } from "$lib/stores";
+
   export let headerName: string;
   export let headerType: 1 | 2 | 3;
   export let hidden: boolean;
+  export let modal: string = "";
+  export let modalData: any = "";
 </script>
 
 <div
@@ -9,22 +13,20 @@
     hidden = !hidden;
   }}
 >
-  {#if headerType == 1}
-    <h1>
-      <button on:click={() => (hidden = !hidden)}>{hidden ? "+" : "-"}</button>
-      <span>{headerName}</span>
-    </h1>
-  {:else if headerType == 2}
-    <h2>
-      <button on:click={() => (hidden = !hidden)}>{hidden ? "+" : "-"}</button>
-      <span>{headerName}</span>
-    </h2>
-  {:else}
-    <h3>
-      <button on:click={() => (hidden = !hidden)}>{hidden ? "+" : "-"}</button>
-      <span>{headerName}</span>
-    </h3>
-  {/if}
+  <h2 style:font-size={headerType == 3 ? "1.17em" : ""}>
+    <button class="btn-collapse" on:click={() => (hidden = !hidden)}
+      >{hidden ? "+" : "-"}</button
+    >
+    <span>{headerName}</span>
+    {#if modal}
+      <button
+        class="btn-modal"
+        on:click={() => {
+          $openModals[modal] = modalData == "" ? true : modalData;
+        }}>🔍</button
+      >
+    {/if}
+  </h2>
 </div>
 {#if !hidden}
   <div style:padding="0.5rem" class={headerType == 2 ? "container" : ""}>
@@ -33,9 +35,7 @@
 {/if}
 
 <style>
-  h1,
-  h2,
-  h3 {
+  h2 {
     margin: 0;
     display: flex;
     gap: 0.5rem;
@@ -47,12 +47,24 @@
   span {
     flex-grow: 1;
   }
-  button {
+  .btn-collapse {
     font-family: inherit;
     color: gold;
     border: none;
     background-color: rgb(58, 59, 60);
     border-radius: 3px;
     cursor: pointer;
+  }
+
+  .btn-modal {
+    padding: 0;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    background: none;
+  }
+  .btn-modal:hover {
+    transform: translateY(-3px);
   }
 </style>

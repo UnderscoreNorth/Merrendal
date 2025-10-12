@@ -7,6 +7,9 @@ import { Map, TerrainTile } from "./map/generation";
 import { type Need } from "./simulation/needs";
 import { type ChoiceEvent } from "./data/choices";
 import { type Event } from "./data/events";
+
+export type TimePeriod = "Morning" | "Afternoon" | "Evening";
+
 export type GameState = {
   npcs: NPC[];
   deadNpcs: NPC[];
@@ -15,7 +18,9 @@ export type GameState = {
   priorInventory: Partial<Record<ItemName, number>>;
   currentDay: number;
   currentYear: number;
+  currentPeriod: TimePeriod;
   dailyWorkerActivity: Set<string>; // Track which workers have worked today
+  areaActionTaken: boolean; // Track if lord has taken an area action this period
   log: Array<{ year: number; day: number; msg: string; tags: string[] }>;
   lord?: Lord;
   season: "Summer" | "Spring" | "Winter" | "Autumn";
@@ -40,7 +45,9 @@ export const game = writable<GameState>({
   priorInventory: {},
   currentDay: 1,
   currentYear: 0,
+  currentPeriod: "Morning",
   dailyWorkerActivity: new Set(),
+  areaActionTaken: false,
   log: [],
   season: "Spring",
   mapSize: 20,

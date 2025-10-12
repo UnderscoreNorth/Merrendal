@@ -69,6 +69,33 @@ export const items = {
     category: "Materials",
     //mineable: true,
   },
+  // Alchemical materials
+  Sulfur: {
+    unitType: "Lbs",
+    category: "Raw Goods",
+    mineable: true,
+  },
+  Mercury: {
+    unitType: "Lbs",
+    category: "Raw Goods",
+    mineable: true,
+  },
+  Salt: {
+    unitType: "Lbs",
+    category: "Raw Goods",
+  },
+  "Alchemical Tincture": {
+    unitType: "Units",
+    category: "Materials",
+  },
+  "Prima Materia": {
+    unitType: "Units",
+    category: "Materials",
+  },
+  "Philosopher's Stone": {
+    unitType: "Units",
+    category: "Materials",
+  },
 } as const satisfies Record<
   string,
   {

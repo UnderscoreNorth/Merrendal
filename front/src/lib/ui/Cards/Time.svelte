@@ -10,8 +10,8 @@
     for (let i = 0; i < number; i++) {
       simulateDay();
       if ($game.pause) break;
-      if (!fast || (fast && i % 14 == 0))
-        await new Promise((r) => setTimeout(r, 10));
+      if (!fast || (fast && i % 90 == 0))
+        await new Promise((r) => setTimeout(r, 1));
     }
     debounce = false;
   }
@@ -40,22 +40,22 @@
     <button
       disabled={$game.pending}
       class="primary-btn"
-      on:click={() => runDays(90)}>⏩</button
+      on:click={() => runDays(90 * 3)}>⏩</button
     >
     <button
       disabled={$game.pending}
       class="primary-btn"
-      on:click={() => runDays(365)}>⏭️</button
+      on:click={() => runDays(365 * 3)}>⏭️</button
     >
     <button
       disabled={$game.pending}
       class="primary-btn"
-      on:click={() => runDays(365 * 10, true)}>🔁️</button
+      on:click={() => runDays(365 * 10 * 3, true)}>🔁️</button
     >
-    <div>
-      <input type="checkbox" bind:checked={$autoPlay} />
-      Autoplay
-    </div>
+  </div>
+  <div style:grid-area="3 / 2 / 4 / 3">
+    {$game.currentPeriod} <input type="checkbox" bind:checked={$autoPlay} />
+    Autoplay
   </div>
   {#if $game.pending}
     <div class="pendingWarning">Active choice pending</div>
@@ -64,12 +64,12 @@
 
 <style>
   .pendingWarning {
-    grid-area: 3 / 2 / 4 / 3;
+    grid-area: 4 / 1 / 5 / 3;
   }
   .time-display {
     display: grid;
     grid-template-columns: min-content;
-    grid-template-rows: auto min-content;
+    grid-template-rows: auto min-content min-content;
     grid-column-gap: 0px;
     grid-row-gap: 0px;
     width: 15rem;
@@ -79,7 +79,7 @@
     grid-area: 1 / 2 / 2 / 3;
   }
   .season {
-    grid-area: 1 / 1 / 3 / 2;
+    grid-area: 1 / 1 / 4 / 2;
     font-size: 2.5rem;
     text-shadow: 1px 1px 2px black;
   }
@@ -89,7 +89,7 @@
 
   .primary-btn {
     padding: 0;
-    font-size: 1.5rem;
+    font-size: 1.3em;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.2s ease;

@@ -1,5 +1,5 @@
 import { type GameState } from "$lib/stores";
-import { unassignNPC } from "../data/npcs";
+import { assignNPCs, unassignNPC } from "../data/npcs";
 import { areaTypes, type Area } from "../data/areas";
 import { buildingTypes, type Building } from "../data/buildings";
 import { type ItemName, items, type ItemRecord } from "$lib/data/items";
@@ -17,6 +17,7 @@ import { proj_Construction } from "$lib/data/projects/data/proj_Construction";
 import { processRecipe } from "./recipes";
 import type { Project } from "$lib/data/projects/project";
 import { getNeedKey } from "./needs";
+import { getAllBuildings } from "./buildings";
 
 export function reassignWorkers(gs: GameState) {
   let projects: Set<Project> = new Set();
@@ -85,6 +86,7 @@ export function reassignWorkers(gs: GameState) {
         id: Math.random().toString(),
         workers: new Set(),
       };
+      if ("stuck" in buildingType) building.stuck = buildingType.stuck;
       if ("occupationTitle" in buildingType)
         building.occupationTitle = buildingType.occupationTitle;
       const project = proj_Construction.constructor({
@@ -134,7 +136,14 @@ export function reassignWorkers(gs: GameState) {
       }
     }
   }
-  for (const npc of gs.npcs.filter((i) => i.age >= 16)) {
+  for (const building of getAllBuildings(gs)) {
+    if (building.type == "Archive" && building.workers.size == 0)
+      assignNPCs(gs, building, 1, 1);
+  }
+  if (gs.currentPeriod == "Evening") return;
+  for (const npc of gs.npcs.filter(
+    (i) => i.age >= 16 && i.job.stuck == false,
+  )) {
     if (!gs.dailyWorkerActivity.has(npc.id)) unassignNPC(npc);
   }
   //assignWorkersByPriorityProjects(gs);
