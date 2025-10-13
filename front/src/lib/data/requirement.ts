@@ -1,7 +1,7 @@
 import type { AreaType } from "./areas";
 import type { BuildingType } from "./buildings";
 import type { ItemName } from "./items";
-import { type Trait } from "./lords";
+import type { Trait } from "./lords";
 
 export type Requirement = { not?: true } & (
   | { type: "item"; data: ItemName; num: number; consume: boolean }

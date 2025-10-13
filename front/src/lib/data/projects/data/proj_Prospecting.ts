@@ -2,7 +2,7 @@ import type { Requirement } from "$lib/data/requirement";
 import type { GameState } from "$lib/stores";
 import { fromCube } from "$lib/util/terrainHelpers";
 import type { Area } from "../../areas";
-import { type ItemName, items, type ItemRecord } from "../../items";
+import type { ItemName, items, type ItemRecord } from "../../items";
 import type {
   Project,
   ProjectPhase,

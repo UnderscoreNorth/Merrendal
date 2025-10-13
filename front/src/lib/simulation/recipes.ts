@@ -1,8 +1,8 @@
 import { recipes } from "$lib/data/recipes";
 import type { Recipe } from "$lib/data/recipes";
-import { type ItemName, items } from "$lib/data/items";
-import { type GameState } from "$lib/stores";
-import { type Building } from "$lib/data/buildings";
+import type { ItemName, items } from "$lib/data/items";
+import type { GameState } from "$lib/stores";
+import type { Building } from "$lib/data/buildings";
 import { assignNPCs, increaseSkill, getSkill } from "$lib/data/npcs";
 
 export function findBuildingsForRecipe(gs: GameState, recipe: Recipe) {

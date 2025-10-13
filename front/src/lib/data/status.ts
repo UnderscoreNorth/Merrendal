@@ -1,4 +1,4 @@
-import { type ItemName } from "./items";
+import type { ItemName } from "./items";
 
 export type Status = {
   name: string;

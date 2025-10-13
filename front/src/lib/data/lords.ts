@@ -1,9 +1,9 @@
 import { recordLoop } from "$lib/util/recordLoop";
 import { pick, roll, rollRange } from "$lib/util/rolls";
 import { goals, type Goal } from "./goals";
-import { type ItemRecord, type ItemName } from "./items";
+import type { ItemRecord, type ItemName } from "./items";
 import { generateFName, type Person } from "./person";
-import { type Status } from "./status";
+import type { Status } from "./status";
 export type Trait = "Patient" | "Inpatient" | "Kind" | "Cruel" | "Alchemy" | "Fighter";
 
 export class Lord implements Person {

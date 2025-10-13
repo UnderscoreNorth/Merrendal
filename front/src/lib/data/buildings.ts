@@ -1,6 +1,6 @@
-import { type GameState } from "$lib/stores";
-import { type Area } from "./areas";
-import { type ItemName } from "./items";
+import type { GameState } from "$lib/stores";
+import type { Area } from "./areas";
+import type { ItemName } from "./items";
 import { unassignNPC } from "./npcs";
 
 export type BuildingType = keyof typeof buildingTypes;

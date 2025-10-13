@@ -1,8 +1,9 @@
-import { type GameState } from "$lib/stores";
-import { pick, rollRange } from "../util/rolls";
-import { type Building, buildingTypes } from "./buildings";
-import { type Person } from "./person";
-import { type Project } from "./projects/project";
+import type { GameState } from "$lib/stores";
+import { rollRange } from "../util/rolls";
+import { buildingTypes } from "./buildings";
+import type { Building } from "./buildings";
+import type { Person } from "./person";
+import type { Project } from "./projects/project";
 
 export type NPC = Person & {
   nameKnown: boolean;

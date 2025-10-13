@@ -1,6 +1,6 @@
-import { type BuildingType } from "./buildings";
-import { type ItemName } from "./items";
-import { type StatType } from "./person";
+import type { BuildingType } from "./buildings";
+import type { ItemName } from "./items";
+import type { StatType } from "./person";
 
 export type Recipe = {
   input: Array<{ type: ItemName; num: number }>;

@@ -1,12 +1,12 @@
 import { writable } from "svelte/store";
-import { type NPC } from "./data/npcs";
-import { type Area } from "./data/areas";
-import { type ItemName } from "./data/items";
-import { type Lord } from "./data/lords";
+import type { NPC } from "./data/npcs";
+import type { Area } from "./data/areas";
+import type { ItemName } from "./data/items";
+import type { Lord } from "./data/lords";
 import { Map, TerrainTile } from "./map/generation";
-import { type Need } from "./simulation/needs";
-import { type ChoiceEvent } from "./data/choices";
-import { type Event } from "./data/events";
+import type { Need } from "./simulation/needs";
+import type { ChoiceEvent } from "./data/choices";
+import type { Event } from "./data/events";
 
 export type TimePeriod = "Morning" | "Afternoon" | "Evening";
 
@@ -31,7 +31,7 @@ export type GameState = {
   pending: boolean;
   choiceEvents: ChoiceEvent[];
   pastLords: Lord[];
-  activeEvents: Event[];
+  events: Event[]; // Renamed from activeEvents for V2 compatibility
   village: {
     trust: number;
     authority: number;
@@ -56,7 +56,7 @@ export const game = writable<GameState>({
   pending: true,
   choiceEvents: [],
   pastLords: [],
-  activeEvents: [],
+  events: [],
   village: {
     trust: 0,
     authority: 0,

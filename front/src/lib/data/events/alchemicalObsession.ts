@@ -1,10 +1,10 @@
 import { killLord, killNPC } from "$lib/simulation/mortality";
 import { ruinBuilding } from "$lib/data/buildings";
-import { type GameState } from "$lib/stores";
+import type { GameState } from "$lib/stores";
 import { pick } from "$lib/util/rolls";
-import { type Choice, type ChoiceEvent } from "../choices";
+import type { Choice, type ChoiceEvent } from "../choices";
 import { Event, type EventContainer, type SubEvent } from "../events";
-import { type Project } from "../projects/project";
+import type { Project } from "../projects/project";
 
 /**
  * The Alchemical Obsession Event Chain

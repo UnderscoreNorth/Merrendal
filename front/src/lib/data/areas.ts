@@ -1,11 +1,12 @@
-import { type Cube } from "$lib/map/generation";
-import { type BuildingType, type Building } from "./buildings";
-import { type ItemRecord, items } from "./items";
+import type { Cube } from "$lib/map/generation";
+import type { BuildingType, Building } from "./buildings";
+import { items } from "./items";
+import type { ItemRecord } from "./items";
 import { proj_Charcoal } from "./projects/data/proj_Charcoal";
 import { proj_FarmWheat } from "./projects/data/proj_FarmWheat";
 import { proj_IronIngot } from "./projects/data/proj_IronIngots";
 import { proj_Prospecting } from "./projects/data/proj_Prospecting";
-import { type ProjectConstructor, type Project } from "./projects/project";
+import type { ProjectConstructor, Project } from "./projects/project";
 
 export type AreaType = Area["type"];
 

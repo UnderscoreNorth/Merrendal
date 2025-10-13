@@ -1,4 +1,4 @@
-import { type Cube, type TerrainTile } from "$lib/map/generation";
+import type { Cube, TerrainTile } from "$lib/map/generation";
 
 export const directions = [
   [0, 1],

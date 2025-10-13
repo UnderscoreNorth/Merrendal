@@ -1,4 +1,4 @@
-import { type GameState, type TimePeriod } from "$lib/stores";
+import type { GameState, type TimePeriod } from "$lib/stores";
 import type { NPC } from "../data/npcs";
 import { rollNewSTR, rollNewDEX } from "../data/npcs";
 import { killLord, processBirths, processOldAgeDeaths } from "./mortality";

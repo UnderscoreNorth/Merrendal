@@ -1,6 +1,6 @@
-import { type Area } from "./data/areas";
+import type { Area } from "./data/areas";
 import { buildingTypes } from "./data/buildings";
-import { type NPC, rollNewSTR, rollNewDEX } from "./data/npcs";
+import type { NPC, rollNewSTR, rollNewDEX } from "./data/npcs";
 import { firstNames } from "./data/person";
 import { Map } from "./map/generation";
 import { spawnBuilding } from "./simulation/buildings";

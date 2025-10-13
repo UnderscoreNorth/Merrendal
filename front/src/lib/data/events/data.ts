@@ -1,5 +1,5 @@
 import { arrayToObject } from "$lib/util/arrayToObject";
-import { type EventContainer } from "../events";
+import type { EventContainer } from "../events";
 import { event_CreaturesOfTheForest } from "./creaturesOfTheForest";
 import { event_AlchemicalObsession } from "./alchemicalObsession";
 import { genericEvents } from "./genericEvents";

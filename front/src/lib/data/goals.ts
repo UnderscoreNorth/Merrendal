@@ -1,5 +1,5 @@
 import { killNPC } from "$lib/simulation/mortality";
-import { type GameState } from "$lib/stores";
+import type { GameState } from "$lib/stores";
 import { getStat } from "./npcs";
 import type { Requirement } from "./requirement";
 
