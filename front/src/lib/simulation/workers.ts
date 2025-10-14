@@ -18,6 +18,7 @@ import { processRecipe } from "./recipes";
 import type { Project } from "$lib/data/projects/project";
 import { getNeedKey } from "./needs";
 import { getAllBuildings } from "./buildings";
+import { Villager } from "$lib/data/living";
 
 export function reassignWorkers(gs: GameState) {
   let projects: Set<Project> = new Set();
@@ -220,5 +221,19 @@ export function reassignWorkers(gs: GameState) {
       assignWorkersToProject(gs, project, priority);
       processProject(gs, area, project);
     }
+  }
+}
+
+export function skillUp(gs: GameState, worker: Villager, skill: string) {
+  const increase = 0.00007;
+  if (worker.skills[skill] == undefined) worker.skills[skill] = 0;
+  worker.skills[skill] += increase;
+  if (worker.skills[skill] > 1) worker.skills[skill] = 1;
+  for (const apprentice of gs.npcs.filter((npc) =>
+    worker.apprentices.includes(npc.id),
+  )) {
+    if (apprentice.skills[skill] == undefined) apprentice.skills[skill] = 0;
+    apprentice.skills[skill] += (increase * (1 + worker.skills[skill])) / 2;
+    if (apprentice.skills[skill] > 1) apprentice.skills[skill] = 1;
   }
 }

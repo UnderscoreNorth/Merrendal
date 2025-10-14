@@ -1,94 +1,188 @@
-import { type BuildingType } from "./buildings";
-import { type ItemName } from "./items";
-import { type StatType } from "./person";
+import { GameState } from "$lib/stores";
+import { Building, type BuildingType } from "./buildings";
+import type { ItemRecord, ItemName } from "./items";
+import { Stat, Villager } from "./living";
 
 export type Recipe = {
-  input: Array<{ type: ItemName; num: number }>;
-  output: Array<{ type: ItemName; num: number }>;
+  input: ItemRecord;
+  amount: number;
   buildings?: Array<BuildingType>;
   statModifers?: Partial<Record<StatType, number>>;
-  worksAtNight?: boolean; // If true, can work during Evening period. Defaults to false.
+  worksAtNight?: boolean;
+  numPeriods?: number;
+  workersRequired?: number;
 };
 
-export const recipes: Recipe[] = [
+export const recipes = {
+  Bread: {
+    numWorkers: 1,
+    constructor: ({ workers, building, gs }) => {
+      let { quality, amount } = getQualityAndAmount(
+        50,
+        workers[0],
+        "Baker",
+        ["DEX"],
+        building.buildingType == "Burgage" ? "quality" : "amount",
+      );
+      return {
+        input: { Grain: 0.5 },
+        amount,
+        numPeriods: 1,
+        quality,
+      };
+    },
+  },
+  Ale: {
+    numWorkers: 1,
+    constructor: ({ workers, building, gs }) => {
+      let { quality, amount } = getQualityAndAmount(
+        30,
+        workers[0],
+        "Brewer",
+        ["WIS"],
+        building.buildingType == "Burgage" ? "quality" : "amount",
+      );
+      return {
+        input: { Grain: 0.5, Firewood: 15 },
+        amount,
+        numPeriods: 1,
+        quality,
+      };
+    },
+  },
+  Spears: {
+    numWorkers: 1,
+    constructor: ({ workers, building, gs }) => {
+      const amount = 2;
+      let { quality, numPeriods } = getQualityAndTime(
+        1,
+        workers[0],
+        "Blacksmith",
+        ["STR", "DEX"],
+        building.buildingType == "Burgage" ? "quality" : "amount",
+      );
+      return {
+        input: { "Iron Ingot": 2, Charcoal: 20, Lumber: 20 },
+        amount,
+        numPeriods,
+        quality,
+      };
+    },
+  },
+} as const satisfies Partial<
+  Record<
+    ItemName,
+    {
+      numWorkers: number;
+      constructor: (data: {
+        workers: Villager[];
+        building: Building;
+        gs: GameState;
+      }) => {
+        input: ItemRecord;
+        amount: number;
+        numPeriods: number;
+        quality: number;
+      };
+    }
+  >
+>;
+
+function getQualityAndAmount(
+  amount: number,
+  worker: Villager,
+  skill: string,
+  stats: Stat[],
+  bonus: "quality" | "amount",
+) {
+  let quality = 0;
+  amount *= getStatMultiplier(stats, worker);
+  if (bonus == "quality") {
+    quality = getQuality(worker.skills[skill] ?? 0);
+  } else {
+    amount *= getSkillMultiplier(skill, worker);
+  }
+  return { amount, quality };
+}
+function getQualityAndTime(
+  numPeriods: number,
+  worker: Villager,
+  skill: string,
+  stats: Stat[],
+  bonus: "quality" | "amount",
+) {
+  let quality = 0;
+  if (bonus == "quality") {
+    quality = getQuality(worker.skills[skill] ?? 0);
+  } else {
+    numPeriods /= getSkillMultiplier(skill, worker);
+  }
+  return { numPeriods, quality };
+}
+
+function getQuality(skill: number) {
+  return Math.round(skill * 2.5 + (Math.random() - (1 - skill)));
+}
+function getStatMultiplier(stats: Stat[], villager: Villager) {
+  let total = 0;
+  for (const stat of stats) {
+    total += villager.stats[stat];
+  }
+  return 1 + (total - stats.length * 5) / (20 * stats.length);
+}
+function getSkillMultiplier(skill: string, villager: Villager) {
+  return 1 + (villager.skills[skill] ?? 0) / 2;
+}
+
+export const recipess: Recipe[] = [
   {
-    input: [{ type: "Wheat", num: 0.5 }],
-    output: [{ type: "Bread", num: 50 }],
-    buildings: ["Bakehouse"],
+    input: { "Iron Ingot": 5, Leather: 2, Charcoal: 240 },
+    output: { Swords: 1 },
+    numPeriods: 12,
   },
   {
-    input: [
-      { type: "Lumber", num: 0.125 },
-      { type: "Iron Ingots", num: 0.5 },
-    ],
-    output: [{ type: "Spears", num: 0.5 }],
-    buildings: ["Forge"],
+    input: { "Iron Ingot": 0.4, Charcoal: 20, Lumber: 20 },
+    output: { Arrows: 40 },
   },
   {
-    input: [],
-    output: [{ type: "Lumber", num: 0.5 }],
-    statModifers: { str: 5 },
-    buildings: ["Lumberyard"],
+    input: { Charcoal: 400, "Iron Ore": 150 },
+    output: { "Iron Ingot": 30 },
+    workersRequired: 5,
   },
   {
-    input: [],
-    output: [{ type: "Iron Ore", num: 0.5 }],
-    statModifers: { str: 5 },
-    buildings: ["Mine"],
+    input: { Lumber: 5000 },
+    output: { Charcoal: 1000 },
+    numPeriods: 10,
   },
   {
-    input: [],
-    output: [{ type: "Stone", num: 1 }],
-    statModifers: { str: 5 },
-    buildings: ["Stone Quarry"],
+    input: { Leather: 10 },
+    output: { Boots: 1 },
+    numPeriods: 2,
   },
   {
-    input: [],
-    output: [{ type: "Meat", num: 2.5 }],
-    statModifers: { str: 5 },
-    buildings: ["Hunter's Hut"],
-  },
-  // Alchemical recipes
-  {
-    input: [],
-    output: [{ type: "Sulfur", num: 0.5 }],
-    statModifers: { str: 5 },
-    buildings: ["Sulfur Mine"],
+    input: { "Animal Hides": 50 },
+    output: { Leather: 50 },
   },
   {
-    input: [],
-    output: [{ type: "Mercury", num: 0.5 }],
-    statModifers: { str: 5 },
-    buildings: ["Mercury Mine"],
+    input: { Lumber: 1500, "Iron Ingot": 75 },
+    output: { Carts: 1 },
+    numPeriods: 60,
   },
   {
-    input: [
-      { type: "Sulfur", num: 0.25 },
-      { type: "Mercury", num: 0.25 },
-      { type: "Salt", num: 0.25 },
-    ],
-    output: [{ type: "Alchemical Tincture", num: 0.5 }],
-    buildings: ["Laboratory"],
-    worksAtNight: true, // Alchemists work at all hours
+    input: { "Raw Wool": 0.25 },
+    output: { "Wool Fabric": 2 },
   },
   {
-    input: [
-      { type: "Alchemical Tincture", num: 2 },
-      { type: "Bread", num: 50 },
-    ],
-    output: [{ type: "Prima Materia", num: 0.25 }],
-    buildings: ["Grand Athanor"],
-    worksAtNight: true,
+    input: { "Wool Fabric": 25 },
+    output: { "Wool Clothes": 1 },
   },
   {
-    input: [
-      { type: "Prima Materia", num: 10 },
-      { type: "Sulfur", num: 5 },
-      { type: "Mercury", num: 5 },
-    ],
-    output: [{ type: "Philosopher's Stone", num: 0.05 }],
-    buildings: ["Grand Athanor"],
-    worksAtNight: true,
+    input: { "Linen Fabric": 25 },
+    output: { "Linen Clothes": 1 },
   },
-  // Archive recipe - special recipe that records logs
+  {
+    input: { Flax: 1 },
+    output: { "Linen Fabric": 25 },
+    numPeriods: 10,
+  },
 ];

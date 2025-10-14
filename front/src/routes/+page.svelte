@@ -21,6 +21,7 @@
   import EventDetail from "$lib/ui/Modals/EventDetail.svelte";
   import PopulationModal from "$lib/ui/Modals/PopulationModal.svelte";
   import AreaDetail from "$lib/ui/Modals/AreaDetail.svelte";
+  import SelectedCell from "$lib/ui/Modals/SelectedCell.svelte";
   init();
 </script>
 
@@ -62,6 +63,9 @@
         <AreaDetail area={$openModals["areaDetail"]} />
       </Card>
     {/if}
+    <Card draggable={true} padding={1} modal="selectedCell">
+      <SelectedCell />
+    </Card>
   </Modal>
   <div class="overlay">
     {#if $game.lord}

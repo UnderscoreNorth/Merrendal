@@ -1,21 +1,17 @@
-import { killNPC } from "$lib/simulation/mortality";
-import { type GameState } from "$lib/stores";
-import { getStat } from "./npcs";
-import type { Requirement } from "./requirement";
-
+import { Input } from "./inputoutput";
 export type Goal = {
   name: string;
   desc: string;
-  requirements: Requirement[];
-  effect: (gs: GameState) => void;
+  requirements: Input[];
+  effectID: string;
 };
 
 export const goals = {
   "Discover Alchemy": {
     name: "Discover Alchemy",
     desc: `To obtain the philospher's stone`,
-    requirements: [{ type: "trait", trait: ["Alchemy"] }],
-    effect: (gs) => null,
+    requirements: [{ inputType: "trait", data: ["Alchemy"] }],
+    effectID: "",
   },
   /*"Return to grace": {
     name: "Return to grace",
@@ -39,19 +35,18 @@ export const goals = {
     name: "Raise an army",
     desc: "Raise an army",
     requirements: [
-      { type: "pop", num: 30, min: 18, consume: false },
+      { inputType: "villager", num: 30, minAge: 18 },
       {
-        type: "pop",
+        inputType: "villager",
         num: 10,
-        min: 18,
-        max: 40,
-        consume: true,
-        cause: "Sent to War",
+        minAge: 18,
+        maxAge: 40,
+        kill: "Sent to War",
       },
-      { type: "item", num: 10, data: "Spears", consume: true },
-      { type: "item", num: 600, data: "Bread", consume: true },
+      { inputType: "item", num: 10, data: "Spears", consume: true },
+      { inputType: "item", num: 600, data: "Bread", consume: true },
     ],
-    effect: (gs) => {},
+    effectID: "",
   },
   /*"Raise taxes": {
     name: "Raise taxes",

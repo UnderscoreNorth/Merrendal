@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import * as PIXI from "pixi.js";
-  import { game, map, view } from "$lib/stores";
+  import { game, map, openModals, view } from "$lib/stores";
   import type { TerrainTile } from "../map/generation";
   import { fromCube, shuffle } from "$lib/util/terrainHelpers";
   import { dataset_dev } from "svelte/internal";
@@ -23,7 +23,6 @@
   let tilesheetLoaded = false;
   let season = "";
   let lakes: Set<string> = new Set();
-
   type TreeCoord = { x: number; y: number; var: number };
 
   // Tile names array - fill this in with your tile names in order
@@ -51,41 +50,6 @@
     "snow Castle",
   ];
 
-  async function loadTilesheetOld() {
-    try {
-      const baseTexture = await PIXI.Assets.load("/sprites/tiles.png");
-      const tileWidth = 32;
-      const tileHeight = 100;
-      const sheetWidth = 576;
-      const sheetHeight = 100;
-      const tilesPerRow = Math.floor(sheetWidth / tileWidth); // 8 tiles per row
-      const tilesPerColumn = Math.floor(sheetHeight / tileHeight); // 6 tiles per column
-      let tileIndex = 0;
-      for (let row = 0; row < tilesPerColumn; row++) {
-        for (let col = 0; col < tilesPerRow; col++) {
-          const rect = new PIXI.Rectangle(
-            col * tileWidth,
-            row * tileHeight,
-            tileWidth,
-            tileHeight,
-          );
-          const texture = new PIXI.Texture({
-            source: baseTexture.source,
-            frame: rect,
-          });
-
-          // Use tile name if provided, otherwise use index
-          const tileName = tileNames[tileIndex] || `tile_${tileIndex}`;
-          tilesheet[tileName] = texture;
-          tileIndex++;
-        }
-      }
-      tilesheet["forested hill"] = tilesheet["wooded hill"];
-      tilesheetLoaded = true;
-    } catch (error) {
-      console.error("Failed to load tilesheet:", error);
-    }
-  }
   async function loadTilesheet() {
     async function loadAsset(fn: string) {
       return new PIXI.Texture({
@@ -317,14 +281,15 @@
       };
       data = mapSprites[fromCube(cell)];
       data.container.eventMode = "static";
+      data.container.hitArea = new PIXI.Circle(x, y + 2.2 * u, 3 * u);
+      new PIXI.Polygon([]);
       data.container.on("pointerdown", () => {
-        const tint = Math.floor(255 * 0.3);
-        //data.container.tint = (tint << 16) | (tint << 8) | tint;
+        $openModals["selectedCell"] = cell;
       });
       data.container.on("mouseover", () => {
         const brightness = new PIXI.ColorMatrixFilter();
         brightness.brightness(1.5, false);
-        //data.container.filters = [brightness];
+        data.container.filters = [brightness];
       });
       data.container.on("mouseleave", () => {
         data.container.filters = [];

@@ -1,108 +1,236 @@
+export type ItemUnit = "Ton" | "KCal" | "Lb" | "Unit" | "Bushel";
+export type ItemCategory =
+  | "Crops"
+  | "Food"
+  | "Drink"
+  | "Raw Good"
+  | "Good"
+  | "Consumable"
+  | "Equipment"
+  | "Clothing"
+  | "Luxuries"
+  | "Carbs"
+  | "Vitamins"
+  | "Protein";
+export type ItemType = {
+  unit: ItemUnit;
+  category: ItemCategory[];
+};
 export type ItemName = keyof typeof items;
-export const unitTypes = [
-  "Bushels",
-  "KCalories",
-  "Units",
-  "Lbs",
-  "Tons",
-] as const;
-export const itemCategories = [
-  "Food",
-  "Crops",
-  "Raw Goods",
-  "Fuel",
-  "Materials",
-  "Weapons",
-] as const;
 export type ItemRecord = Partial<Record<ItemName, number>>;
 export const items = {
-  Wheat: {
-    unitType: "Bushels",
-    category: "Food",
-    farmable: true,
-    stockpile: true,
-  },
-  Bread: {
-    unitType: "KCalories",
-    category: "Food",
-    stockpile: true,
+  Grain: {
+    unit: "Bushel",
+    category: ["Crops"],
   },
   Vegetables: {
-    unitType: "KCalories",
-    category: "Food",
-    farmable: true,
+    unit: "Lb",
+    category: ["Crops", "Food", "Vitamins"],
+  },
+  Fruit: {
+    unit: "Lb",
+    category: ["Crops", "Food", "Vitamins"],
+  },
+  Flax: {
+    unit: "Bushel",
+    category: ["Crops"],
+  },
+  Herbs: {
+    unit: "Lb",
+    category: ["Raw Good"],
+  },
+  Legumes: {
+    unit: "Lb",
+    category: ["Crops", "Protein", "Food"],
+  },
+  Ale: {
+    unit: "Unit",
+    category: ["Drink", "Food"],
+  },
+  Wine: {
+    unit: "Unit",
+    category: ["Drink", "Food"],
+  },
+  Bread: {
+    unit: "Lb",
+    category: ["Food", "Carbs"],
+  },
+  Porridge: {
+    unit: "Lb",
+    category: ["Food", "Carbs"],
+  },
+  Berries: {
+    unit: "Lb",
+    category: ["Food", "Vitamins"],
   },
   Meat: {
-    unitType: "KCalories",
-    category: "Food",
-    stockpile: true,
+    unit: "Lb",
+    category: ["Food", "Protein"],
+  },
+  Eggs: {
+    unit: "Lb",
+    category: ["Food", "Protein"],
+  },
+  Cheese: {
+    unit: "Lb",
+    category: ["Food", "Protein"],
   },
   Lumber: {
-    unitType: "Tons",
-    category: "Raw Goods",
-  },
-  "Iron Ore": {
-    unitType: "Lbs",
-    category: "Raw Goods",
-    mineable: true,
-  },
-  /* "Gold Ore": {
-    unitType: "Lbs",
-    category: "Raw Goods",
-    mineable: true,
-    stockpile: true,
-  },*/
-  Charcoal: {
-    unitType: "Lbs",
-    category: "Fuel",
-  },
-  "Iron Ingots": {
-    unitType: "Lbs",
-    category: "Materials",
-  },
-  Spears: {
-    unitType: "Units",
-    category: "Weapons",
+    unit: "Ton",
+    category: ["Raw Good"],
   },
   Stone: {
-    unitType: "Tons",
-    category: "Materials",
-    //mineable: true,
+    unit: "Ton",
+    category: ["Raw Good"],
   },
-  // Alchemical materials
-  Sulfur: {
-    unitType: "Lbs",
-    category: "Raw Goods",
-    mineable: true,
+  "Iron Ore": {
+    unit: "Ton",
+    category: ["Raw Good"],
   },
-  Mercury: {
-    unitType: "Lbs",
-    category: "Raw Goods",
-    mineable: true,
+  "Gold Ore": {
+    unit: "Ton",
+    category: ["Raw Good"],
   },
-  Salt: {
-    unitType: "Lbs",
-    category: "Raw Goods",
+  "Silver Ore": {
+    unit: "Ton",
+    category: ["Raw Good"],
   },
-  "Alchemical Tincture": {
-    unitType: "Units",
-    category: "Materials",
+  Clay: {
+    unit: "Lb",
+    category: ["Raw Good"],
   },
-  "Prima Materia": {
-    unitType: "Units",
-    category: "Materials",
+  "Raw Wool": {
+    unit: "Lb",
+    category: ["Raw Good"],
   },
-  "Philosopher's Stone": {
-    unitType: "Units",
-    category: "Materials",
+  "Animal Hides": {
+    unit: "Lb",
+    category: ["Raw Good"],
   },
-} as const satisfies Record<
-  string,
-  {
-    unitType: (typeof unitTypes)[number];
-    category: (typeof itemCategories)[number];
-    farmable?: boolean;
-    mineable?: boolean;
-    stockpile?: boolean;
-  }
->;
+  Flour: {
+    unit: "Lb",
+    category: ["Raw Good"],
+  },
+  Milk: {
+    unit: "Lb",
+    category: ["Raw Good"],
+  },
+  "Iron Ingot": {
+    unit: "Lb",
+    category: ["Good"],
+  },
+  "Gold Ingot": {
+    unit: "Lb",
+    category: ["Good"],
+  },
+  "Silver Ingot": {
+    unit: "Lb",
+    category: ["Good"],
+  },
+  Gems: {
+    unit: "Unit",
+    category: ["Good"],
+  },
+  "Wool Fabric": {
+    unit: "Lb",
+    category: ["Good"],
+  },
+  Leather: {
+    unit: "Lb",
+    category: ["Good"],
+  },
+  "Linen Fabric": {
+    unit: "Lb",
+    category: ["Good"],
+  },
+  Fur: {
+    unit: "Lb",
+    category: ["Good"],
+  },
+  Coins: {
+    unit: "Unit",
+    category: ["Good"],
+  },
+  Tooling: {
+    unit: "Unit",
+    category: ["Consumable"],
+  },
+  Charcoal: {
+    unit: "Lb",
+    category: ["Consumable"],
+  },
+  Firewood: {
+    unit: "Lb",
+    category: ["Consumable"],
+  },
+  Carts: {
+    unit: "Unit",
+    category: ["Consumable"],
+  },
+  Swords: {
+    unit: "Unit",
+    category: ["Equipment"],
+  },
+  Spears: {
+    unit: "Unit",
+    category: ["Equipment"],
+  },
+  Bows: {
+    unit: "Unit",
+    category: ["Equipment"],
+  },
+  Arrows: {
+    unit: "Unit",
+    category: ["Equipment"],
+  },
+  Shields: {
+    unit: "Unit",
+    category: ["Equipment"],
+  },
+  Pickaxes: {
+    unit: "Unit",
+    category: ["Equipment"],
+  },
+  Woodaxes: {
+    unit: "Unit",
+    category: ["Equipment"],
+  },
+  Books: {
+    unit: "Unit",
+    category: ["Equipment"],
+  },
+  "Linen Clothes": {
+    unit: "Unit",
+    category: ["Clothing"],
+  },
+  "Wool Clothes": {
+    unit: "Unit",
+    category: ["Clothing"],
+  },
+  Chainmail: {
+    unit: "Unit",
+    category: ["Clothing"],
+  },
+  Boots: {
+    unit: "Unit",
+    category: ["Clothing"],
+  },
+  Pottery: {
+    unit: "Unit",
+    category: ["Luxuries"],
+  },
+  Dinnerware: {
+    unit: "Unit",
+    category: ["Luxuries"],
+  },
+  Jewelry: {
+    unit: "Unit",
+    category: ["Luxuries"],
+  },
+} as const satisfies Record<string, ItemType>;
+export type Item = {
+  type: "item";
+  num: number;
+  itemType: ItemName;
+  quality: number;
+};

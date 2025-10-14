@@ -1,16 +1,12 @@
 import { type AreaType, type Area, areaTypes } from "$lib/data/areas";
 import { type BuildingType, buildingTypes } from "$lib/data/buildings";
-import {
-  itemCategories,
-  type ItemName,
-  type ItemRecord,
-  items,
-} from "$lib/data/items";
+import { type ItemName, type ItemRecord, items } from "$lib/data/items";
 import { type GameState } from "$lib/stores";
 import { type Recipe, recipes } from "$lib/data/recipes";
 import { type Project } from "$lib/data/projects/project";
 import { recordLoop } from "$lib/util/recordLoop";
 import { calculateDailyCalorieConsumption } from "./food";
+import type { ItemCategory } from "$lib/types/item";
 
 export type Need = //NPCNeed
   //|
@@ -34,7 +30,7 @@ export type ItemNeed = {
 export type ItemCategoryNeed = {
   type: "itemCategory";
   num: number;
-  itemCategory: (typeof itemCategories)[number];
+  itemCategory: ItemCategory;
 };
 export type BuildingNeed = {
   type: "building";

@@ -1,13 +1,12 @@
 <script lang="ts">
   import { game, openModals } from "$lib/stores";
   import { getNeedKey, type Need } from "$lib/simulation/needs";
-  import { itemCategories, items, type ItemName } from "$lib/data/items";
+  import { items, type ItemName } from "$lib/data/items";
   import { buildingTypes, type BuildingType } from "$lib/data/buildings";
   import { areaTypes, type AreaType } from "$lib/data/areas";
 
-  let needType: "item" | "itemCategory" | "building" | "area" = "item";
+  let needType: "item" | "building" | "area" = "item";
   let selectedItem: ItemName = "Bread";
-  let selectedCategory = itemCategories[0];
   let selectedBuilding: BuildingType = Object.keys(
     buildingTypes,
   )[0] as BuildingType;
@@ -24,16 +23,6 @@
         need = {
           type: "item",
           item: selectedItem,
-          num: quantity,
-          priority,
-          primary: true,
-          repeating,
-        };
-        break;
-      case "itemCategory":
-        need = {
-          type: "itemCategory",
-          itemCategory: selectedCategory,
           num: quantity,
           priority,
           primary: true,
@@ -91,21 +80,6 @@
       <select id="item-select" bind:value={selectedItem}>
         {#each Object.keys(items) as itemName}
           <option value={itemName}>{itemName}</option>
-        {/each}
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="quantity">Quantity:</label>
-      <input id="quantity" type="number" min="1" bind:value={quantity} />
-    </div>
-  {/if}
-
-  {#if needType === "itemCategory"}
-    <div class="form-group">
-      <label for="category-select">Category:</label>
-      <select id="category-select" bind:value={selectedCategory}>
-        {#each itemCategories as category}
-          <option value={category}>{category}</option>
         {/each}
       </select>
     </div>
