@@ -1,18 +1,14 @@
 import { writable } from "svelte/store";
-import { type NPC } from "./data/npcs";
 import { type Area } from "./data/areas";
 import { type ItemName } from "./data/items";
-import { type Lord } from "./data/lords";
 import { Map, TerrainTile } from "./map/generation";
-import { type Need } from "./simulation/needs";
-import { type ChoiceEvent } from "./data/choices";
-import { type Event } from "./data/events";
+import type { Villager } from "./data/living";
 
 export type TimePeriod = "Morning" | "Afternoon" | "Evening";
 
 export type GameState = {
-  npcs: NPC[];
-  deadNpcs: NPC[];
+  npcs: Villager[];
+  deadNpcs: Villager[];
   areas: Area[];
   inventory: Partial<Record<ItemName, number>>;
   priorInventory: Partial<Record<ItemName, number>>;
@@ -22,15 +18,12 @@ export type GameState = {
   dailyWorkerActivity: Set<string>; // Track which workers have worked today
   areaActionTaken: boolean; // Track if lord has taken an area action this period
   log: Array<{ year: number; day: number; msg: string; tags: string[] }>;
-  lord?: Lord;
   season: "Summer" | "Spring" | "Winter" | "Autumn";
   mapSize: number;
   map?: Map;
-  needs: Record<string, Need>;
+  needs: Record<string, any>;
   pause: boolean;
   pending: boolean;
-  choiceEvents: ChoiceEvent[];
-  pastLords: Lord[];
   activeEvents: Event[];
   village: {
     trust: number;
@@ -54,8 +47,6 @@ export const game = writable<GameState>({
   needs: {},
   pause: true,
   pending: true,
-  choiceEvents: [],
-  pastLords: [],
   activeEvents: [],
   village: {
     trust: 0,

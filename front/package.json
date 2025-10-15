@@ -34,6 +34,7 @@
 	"type": "module",
 	"dependencies": {
 		"pixi.js": "^8.13.2",
-		"svelte-icons": "^2.1.0"
+		"svelte-icons": "^2.1.0",
+		"uuid": "^13.0.0"
 	}
 }

@@ -1,9 +1,7 @@
-import { recipes } from "$lib/data/recipes";
-import type { NPC } from "../data/npcs";
 import { processHungerDeaths } from "./mortality";
 import { type GameState } from "$lib/stores";
 import { recordLoop } from "$lib/util/recordLoop";
-import { type ItemRecord, items } from "$lib/data/items";
+import { items } from "$lib/data/items";
 
 export function calculateDailyCalorieConsumption(gs: GameState): number {
   let totalCalories = 0;
@@ -28,7 +26,8 @@ export function calculateDailyCalorieConsumption(gs: GameState): number {
 export function getAvailableFood(gs: GameState) {
   let totalCalories = 0;
   for (const [itemName, calories] of recordLoop(gs.inventory)) {
-    if (items[itemName].unitType == "KCalories" && calories !== undefined)
+    //@ts-ignore
+    if (items[itemName].category.includes("Food") && calories !== undefined)
       totalCalories += calories;
   }
   return totalCalories;
@@ -104,7 +103,8 @@ export function consumeFood(gs: GameState) {
 
   for (const [itemName, calories] of recordLoop(gs.inventory)) {
     if (
-      items[itemName].unitType === "KCalories" &&
+      //@ts-ignore
+      items[itemName].category.includes("Food") &&
       calories !== undefined &&
       calories > 0
     ) {

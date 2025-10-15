@@ -1,16 +1,13 @@
-import { GameState } from "$lib/stores";
-import { Building, type BuildingType } from "./buildings";
+import type { GameState } from "$lib/stores";
+import type { Building } from "./buildings";
 import type { ItemRecord, ItemName } from "./items";
-import { Stat, Villager } from "./living";
+import type { Stat, Villager } from "./living";
 
 export type Recipe = {
   input: ItemRecord;
+  output: ItemName;
   amount: number;
-  buildings?: Array<BuildingType>;
-  statModifers?: Partial<Record<StatType, number>>;
-  worksAtNight?: boolean;
-  numPeriods?: number;
-  workersRequired?: number;
+  periodsLeft: number;
 };
 
 export const recipes = {
@@ -87,54 +84,7 @@ export const recipes = {
     }
   >
 >;
-
-function getQualityAndAmount(
-  amount: number,
-  worker: Villager,
-  skill: string,
-  stats: Stat[],
-  bonus: "quality" | "amount",
-) {
-  let quality = 0;
-  amount *= getStatMultiplier(stats, worker);
-  if (bonus == "quality") {
-    quality = getQuality(worker.skills[skill] ?? 0);
-  } else {
-    amount *= getSkillMultiplier(skill, worker);
-  }
-  return { amount, quality };
-}
-function getQualityAndTime(
-  numPeriods: number,
-  worker: Villager,
-  skill: string,
-  stats: Stat[],
-  bonus: "quality" | "amount",
-) {
-  let quality = 0;
-  if (bonus == "quality") {
-    quality = getQuality(worker.skills[skill] ?? 0);
-  } else {
-    numPeriods /= getSkillMultiplier(skill, worker);
-  }
-  return { numPeriods, quality };
-}
-
-function getQuality(skill: number) {
-  return Math.round(skill * 2.5 + (Math.random() - (1 - skill)));
-}
-function getStatMultiplier(stats: Stat[], villager: Villager) {
-  let total = 0;
-  for (const stat of stats) {
-    total += villager.stats[stat];
-  }
-  return 1 + (total - stats.length * 5) / (20 * stats.length);
-}
-function getSkillMultiplier(skill: string, villager: Villager) {
-  return 1 + (villager.skills[skill] ?? 0) / 2;
-}
-
-export const recipess: Recipe[] = [
+/*export const recipess: Recipe[] = [
   {
     input: { "Iron Ingot": 5, Leather: 2, Charcoal: 240 },
     output: { Swords: 1 },
@@ -185,4 +135,50 @@ export const recipess: Recipe[] = [
     output: { "Linen Fabric": 25 },
     numPeriods: 10,
   },
-];
+];*/
+
+function getQualityAndAmount(
+  amount: number,
+  worker: Villager,
+  skill: string,
+  stats: Stat[],
+  bonus: "quality" | "amount",
+) {
+  let quality = 0;
+  amount *= getStatMultiplier(stats, worker);
+  if (bonus == "quality") {
+    quality = getQuality(worker.skills[skill] ?? 0);
+  } else {
+    amount *= getSkillMultiplier(skill, worker);
+  }
+  return { amount, quality };
+}
+function getQualityAndTime(
+  numPeriods: number,
+  worker: Villager,
+  skill: string,
+  stats: Stat[],
+  bonus: "quality" | "amount",
+) {
+  let quality = 0;
+  if (bonus == "quality") {
+    quality = getQuality(worker.skills[skill] ?? 0);
+  } else {
+    numPeriods /= getSkillMultiplier(skill, worker);
+  }
+  return { numPeriods, quality };
+}
+
+function getQuality(skill: number) {
+  return Math.round(skill * 2.5 + (Math.random() - (1 - skill)));
+}
+function getStatMultiplier(stats: Stat[], villager: Villager) {
+  let total = 0;
+  for (const stat of stats) {
+    total += villager.stats[stat];
+  }
+  return 1 + (total - stats.length * 5) / (20 * stats.length);
+}
+function getSkillMultiplier(skill: string, villager: Villager) {
+  return 1 + (villager.skills[skill] ?? 0) / 2;
+}

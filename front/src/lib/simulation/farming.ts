@@ -1,14 +1,12 @@
+import { Area } from "$lib/data/areas";
 import type { Villager } from "$lib/data/living";
+import type { GameState } from "$lib/stores";
 
-function sowing() {
-  //get # acres not sowed yet.
-  //get # of available cattle
-  //get # of available plows
-  //get # of available farmers
-  let unsowedLand = 0;
+export function sowing(gs: GameState, area: Area) {
+  let unsowedLand = area.arableLand - (area.yields["Planted Grain"] ?? 0);
   let availableCattle = 0;
   let availablePlows = 0;
-  let availableFarmers: Villager[] = [];
+  let availableFarmers: Villager[] = getFarmers(gs.npcs);
 
   for (const farmer of availableFarmers) {
     let skill = farmer.skills["Farmer"] ?? 0;
@@ -26,23 +24,24 @@ function sowing() {
     }
     if (unsowedLand <= 0) break;
   }
+  area.yields["Planted Grain"] =
+    (area.yields["Planted Grain"] ?? 0) + area.arableLand - unsowedLand;
 }
 
-function growing() {
-  let currentYield = 0;
-  let numAcres = 0;
+export function growing(gs: GameState, area: Area) {
+  let numAcres = area.yields["Planted Grain"] ?? 0;
   let farmersRequired = numAcres / 40;
-  let availableFarmers = 0;
-  if (availableFarmers < farmersRequired) {
-    if (Math.random() > availableFarmers / farmersRequired) {
-      currentYield -= 0.01;
+  let availableFarmers: Villager[] = getFarmers(gs.npcs);
+  if (availableFarmers.length < farmersRequired) {
+    if (Math.random() > availableFarmers.length / farmersRequired) {
+      area.yields["Planted Grain"] = (area.yields["Planted Grain"] ?? 0) - 0.01;
     }
   }
 }
 
-function harvesting() {
-  let remainingAcres = 0;
-  let availableFarmers: Villager[] = [];
+export function harvesting(gs: GameState, area: Area) {
+  let remainingAcres = area.yields["Planted Grain"] ?? 0;
+  let availableFarmers: Villager[] = getFarmers(gs.npcs);
   let bushelsHarvested = 0;
   for (const farmer of availableFarmers) {
     let skill = farmer.skills["Farmer"] ?? 0;
@@ -53,4 +52,17 @@ function harvesting() {
     bushelsHarvested = acresHarvested * 6 * multiplier;
     if (remainingAcres <= 0) break;
   }
+  gs.inventory.Grain = (gs.inventory.Grain ?? 0) + bushelsHarvested;
+}
+
+function getFarmers(villagers: Villager[]) {
+  return villagers
+    .filter((i) => i.age >= 16)
+    .sort((a, b) => {
+      if ((b.skills["Farmer"] ?? 0) == (a.skills["Farmer"] ?? 0)) {
+        return b.stats.STR + b.stats.CON - (a.stats.STR - a.stats.CON);
+      } else {
+        return (b.skills["Farmer"] ?? 0) - (a.skills["Farmer"] ?? 0);
+      }
+    });
 }

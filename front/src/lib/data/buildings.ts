@@ -1,59 +1,57 @@
-import { ItemRecord } from "./items";
+import type { ItemRecord } from "./items";
+import type { Time } from "./time";
 
 export type Building = {
   id: string;
   type: "building";
   buildingType: BuildingType;
   maxPops: number;
+  liveIn?: boolean;
   workers: Set<number>;
   occupationTitle?: string;
   stuck?: boolean;
-  status: "built" | "ruined";
+  status: "built" | "ruined" | "demolishing";
   maintenanceCost: ItemRecord;
   upgrades: Record<
     string,
     {
-      status: "built" | "ruined";
+      status: "built" | "ruined" | "demolishing";
       maintenanceCost: ItemRecord;
     }
   >;
+  built: Time;
 };
 export type BuildingTemplate = {
   occupationTitle?: string;
   stuck?: boolean;
   requirements: ItemRecord;
-  daysToComplete: number;
   liveIn?: boolean;
-  maxPops?: number;
-  upgrades: Record<
-    string,
-    {
-      groupKey?: string;
-      daysToComplete: number;
-      requirements: ItemRecord;
-      maintenance?: {
-        yearlyLoss: number;
-        cost: ItemRecord;
-      };
-    }
-  >;
+  maxPops: number;
+  upgrades: Record<string, Upgrade>;
   maintenance?: {
     yearlyLoss: number;
     cost: ItemRecord;
   };
 };
-
+export type Upgrade = {
+  groupKey?: string;
+  requirements: ItemRecord;
+  maintenance?: {
+    yearlyLoss: number;
+    cost: ItemRecord;
+  };
+};
 export type BuildingType = keyof typeof buildingTypes;
-
+export type UpgradeType = {
+  [K in keyof typeof buildingTypes]: keyof (typeof buildingTypes)[K]["upgrades"];
+}[keyof typeof buildingTypes];
 export const buildingTypes = {
   Forge: {
-    requirements: { Lumber: 10, Stone: 30 },
+    requirements: { Lumber: 3500, Stone: 60000 },
     maxPops: 3,
-    daysToComplete: 7,
     occupationTitle: "Blacksmith",
     upgrades: {
       Bellows: {
-        daysToComplete: 1,
         requirements: {
           Leather: 1,
         },
@@ -65,20 +63,17 @@ export const buildingTypes = {
     },
   },
   "Iron Bloomery": {
-    requirements: { Lumber: 10, Stone: 50 },
+    requirements: { Lumber: 5000, Stone: 100000 },
     maxPops: 10,
-    daysToComplete: 7,
     occupationTitle: "Bloomery Worker",
     upgrades: {},
   },
   Bakehouse: {
-    requirements: { Lumber: 7, Stone: 4 },
+    requirements: { Lumber: 3000, Stone: 8000 },
     maxPops: 3,
-    daysToComplete: 7,
     occupationTitle: "Baker",
     upgrades: {
       "Stone Foundation": {
-        daysToComplete: 7,
         requirements: {
           Stone: 25,
         },
@@ -86,44 +81,42 @@ export const buildingTypes = {
     },
   },
   "Wood Wall": {
-    requirements: { Lumber: 20 },
+    requirements: { Lumber: 700000 },
     maxPops: 0,
-    daysToComplete: 1,
-    upgrades: {},
+    upgrades: {
+      Palisades: {
+        requirements: { Lumber: 300000 },
+      },
+    },
   },
   "Iron Mine": {
-    requirements: { Lumber: 1 },
+    requirements: { Lumber: 1000 },
     maxPops: 10,
-    daysToComplete: 1,
     occupationTitle: "Miner",
     upgrades: {
       Shoring: {
-        daysToComplete: 14,
         requirements: {
-          Lumber: 50,
-          Stone: 5,
+          Lumber: 100000,
+          Stone: 10000,
         },
         maintenance: {
           yearlyLoss: 1,
-          cost: { Lumber: 25 },
+          cost: { Lumber: 50000 },
         },
       },
       Ventilation: {
-        daysToComplete: 3,
         requirements: {
-          Lumber: 5,
-          Stone: 2,
+          Lumber: 10000,
+          Stone: 4000,
         },
       },
       Dewatering: {
-        daysToComplete: 14,
         requirements: {
-          Lumber: 30,
-          Stone: 20,
+          Lumber: 60000,
+          Stone: 40000,
         },
       },
       Carts: {
-        daysToComplete: 0,
         requirements: {
           Carts: 1,
         },
@@ -135,13 +128,11 @@ export const buildingTypes = {
     },
   },
   "Stone Quarry": {
-    requirements: { Lumber: 1 },
+    requirements: { Lumber: 1000 },
     maxPops: 5,
-    daysToComplete: 7,
     occupationTitle: "Quarryman",
     upgrades: {
       Carts: {
-        daysToComplete: 0,
         requirements: {
           Carts: 1,
         },
@@ -155,11 +146,9 @@ export const buildingTypes = {
   Lumberyard: {
     requirements: {},
     maxPops: 5,
-    daysToComplete: 1,
     occupationTitle: "Lumberjack",
     upgrades: {
       Carts: {
-        daysToComplete: 0,
         requirements: {
           Carts: 1,
         },
@@ -171,73 +160,74 @@ export const buildingTypes = {
     },
   },
   "Hunter's Hut": {
-    requirements: { Lumber: 3 },
+    requirements: { Lumber: 1000 },
     maxPops: 10,
-    daysToComplete: 1,
     occupationTitle: "Hunter",
     upgrades: {},
   },
   Workshop: {
-    requirements: { Lumber: 20 },
+    requirements: { Lumber: 3000 },
     maxPops: 4,
-    daysToComplete: 7,
     occupationTitle: "Artison",
     upgrades: {},
   },
   Tailor: {
-    requirements: { Lumber: 20 },
+    requirements: { Lumber: 3000 },
     maxPops: 2,
-    daysToComplete: 7,
     occupationTitle: "Artison",
     upgrades: {},
   },
   Garrison: {
-    requirements: { Lumber: 20 },
+    requirements: { Lumber: 5000 },
     maxPops: 4,
-    daysToComplete: 7,
     occupationTitle: "Militia",
     upgrades: {},
   },
+  "Wooden Bridge": {
+    requirements: { Lumber: 35000 },
+    maxPops: 0,
+    upgrades: {},
+  },
+  "Stone Bridge": {
+    requirements: { Lumber: 20000, Stone: 100000 },
+    maxPops: 0,
+    upgrades: {},
+    maintenance: { yearlyLoss: 0.1, cost: { Stone: 1000 } },
+  },
   Burgage: {
-    requirements: { Lumber: 15 },
+    requirements: { Lumber: 5000 },
     maxPops: 1,
-    daysToComplete: 7,
     upgrades: {
       "Stone Walls": {
-        daysToComplete: 14,
         requirements: {
-          Stone: 70,
+          Stone: 20000,
         },
       },
       "Bread Oven": {
         groupKey: "Specialization",
-        daysToComplete: 2,
         requirements: {
-          Stone: 2,
+          Stone: 4000,
         },
       },
       Forge: {
         groupKey: "Specialization",
-        daysToComplete: 2,
         requirements: {
-          Stone: 4,
+          Stone: 8000,
           "Iron Ingot": 5,
         },
       },
       Brewery: {
         groupKey: "Specizaliation",
-        daysToComplete: 2,
         requirements: {
-          Lumber: 3,
+          Lumber: 6000,
         },
       },
     },
   },
   // Manor buildings
   Archive: {
-    requirements: { Lumber: 30, Stone: 10 },
+    requirements: { Lumber: 60000, Stone: 20000 },
     maxPops: 1,
-    daysToComplete: 14,
     occupationTitle: "Archivist",
     stuck: true,
     upgrades: {},

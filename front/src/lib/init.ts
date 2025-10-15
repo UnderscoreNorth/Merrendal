@@ -1,16 +1,13 @@
 import { type Area } from "./data/areas";
-import { buildingTypes } from "./data/buildings";
-import { type NPC, rollNewSTR, rollNewDEX } from "./data/npcs";
-import { firstNames } from "./data/person";
+import { generateFName, type Villager } from "./data/living";
 import { Map } from "./map/generation";
-import { spawnBuilding } from "./simulation/buildings";
-import { getNeedKey, type Need } from "./simulation/needs";
+import { rollStats } from "./simulation/living";
 import { game, map } from "./stores";
 import { rollRange } from "./util/rolls";
-
+import { v4 as uuidv4 } from "uuid";
 export function init() {
-  let num = Math.ceil(Math.random() * 30) + 20;
-  const npcs: NPC[] = [];
+  let num = 20;
+  const npcs: Villager[] = [];
   let bread = 0;
   const mapSize = 15;
   const mapData = new Map(mapSize, []);
@@ -23,9 +20,11 @@ export function init() {
       buildings: [],
       acres: Math.ceil((1 - farmTile.forested / 100) * 50),
       type: "Farm",
-      currentProjects: {},
-      yieldEff: { Wheat: farmTile.yield },
+      currentProjects: [],
+      yieldEff: { Grain: farmTile.yield },
       loc: { q: farmTile.q, s: farmTile.s, r: farmTile.r },
+      arableLand: 100,
+      yields: {},
     };
     areas.push(farm);
   }
@@ -36,14 +35,15 @@ export function init() {
       type: "Forest",
       acres: rollRange(800, 2000),
       buildings: [],
-      currentProjects: {},
+      currentProjects: [],
       yieldEff: {
         Lumber: forestTile.forested / 100,
         Meat: forestTile.yield,
       },
       loc: { q: forestTile.q, s: forestTile.s, r: forestTile.r },
+      yields: {},
+      arableLand: 0,
     };
-    spawnBuilding(forest, "Lumberyard", buildingTypes.Lumberyard);
     areas.push(forest);
   }
 
@@ -57,8 +57,10 @@ export function init() {
       acres: rollRange(5, 10),
       buildings: [],
       yieldEff: {},
-      currentProjects: {},
+      currentProjects: [],
       loc: { q: villageTile.q, s: villageTile.s, r: villageTile.r },
+      yields: {},
+      arableLand: 0,
     };
     areas.push(village);
     villageId = village.areaID;
@@ -72,51 +74,38 @@ export function init() {
     acres: rollRange(10, 20),
     buildings: [],
     yieldEff: {},
-    currentProjects: {},
+    currentProjects: [],
     loc: { q: manorTile.q + 1, s: manorTile.s, r: manorTile.r - 1 },
+    arableLand: 0,
+    yields: {},
   };
   areas.push(manor);
 
   // Initialize NPCs after areas are created so we can assign home areas
   for (let i = 0; i <= num; i++) {
-    const age = Math.ceil(Math.random() * 60);
+    const age = Math.ceil(Math.random() * 40) + 20;
     bread += age > 16 ? 2 * 365 : 1.5 * 365;
-    const npc: NPC = {
-      id: i.toString(),
-      fName: firstNames[i],
-      nameKnown: false,
-      metByLord: false,
-      homeAreaId: villageId, // All NPCs start in the village
-      relations: {},
+    const npc: Villager = {
+      id: uuidv4(),
+      fName: generateFName(),
       age,
       job: {
         title: "None",
-        priority: 0,
         stuck: false,
       },
       birthday: rollRange(1, 365),
-      stats: {
-        str: 0,
-        dex: 0,
-      },
-      statuses: {},
+      stats: rollStats(),
       hunger: 0,
       skills: {},
+      status: [],
+      equipement: [],
+      home: "",
+      children: [],
+      apprentices: [],
+      type: "Villager",
     };
-    npc.stats.str = rollNewSTR(npc);
-    npc.stats.dex = rollNewDEX(npc);
     npcs.push(npc);
   }
-
-  const needs: Record<string, Need> = {};
-  const hunterHutNeed: Need = {
-    type: "building",
-    building: "Hunter's Hut",
-    primary: true,
-    repeating: false,
-    priority: 2,
-  };
-  needs[getNeedKey(hunterHutNeed)] = hunterHutNeed;
   game.set({
     npcs,
     deadNpcs: [],
@@ -133,12 +122,10 @@ export function init() {
     log: [],
     season: "Spring",
     mapSize,
-    needs,
+    needs: {},
     map: mapData,
     pause: true,
     pending: true,
-    choiceEvents: [],
-    pastLords: [],
     activeEvents: [],
     village: {
       trust: 700,

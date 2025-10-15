@@ -3,14 +3,13 @@
   import { getNeedKey, type Need } from "$lib/simulation/needs";
   import { items, type ItemName } from "$lib/data/items";
   import { buildingTypes, type BuildingType } from "$lib/data/buildings";
-  import { areaTypes, type AreaType } from "$lib/data/areas";
+  import { type AreaType } from "$lib/data/areas";
 
-  let needType: "item" | "building" | "area" = "item";
+  let needType: "item" | "building" = "item";
   let selectedItem: ItemName = "Bread";
   let selectedBuilding: BuildingType = Object.keys(
     buildingTypes,
   )[0] as BuildingType;
-  let selectedArea: AreaType = Object.keys(areaTypes)[0] as AreaType;
   let quantity = 1;
   let priority = 1;
   let repeating = false;
@@ -38,15 +37,6 @@
           repeating,
         };
         break;
-      case "area":
-        need = {
-          type: "area",
-          area: selectedArea,
-          priority,
-          primary: true,
-          repeating,
-        };
-        break;
     }
 
     const needKey = getNeedKey(need);
@@ -59,8 +49,7 @@
   <h2>Add New Need</h2>
   <button
     class="close-btn"
-    on:click={() => ($openModals["addNeeds"] = undefined)}>×</button
-  >
+    on:click={() => ($openModals["addNeeds"] = undefined)}>×</button>
 </div>
 
 <div class="modal-body">
@@ -100,17 +89,6 @@
     </div>
   {/if}
 
-  {#if needType === "area"}
-    <div class="form-group">
-      <label for="area-select">Area:</label>
-      <select id="area-select" bind:value={selectedArea}>
-        {#each Object.keys(areaTypes) as areaType}
-          <option value={areaType}>{areaType}</option>
-        {/each}
-      </select>
-    </div>
-  {/if}
-
   <div class="form-group">
     <label for="priority">Priority:</label>
     <input
@@ -118,8 +96,7 @@
       type="number"
       min="0"
       step="0.1"
-      bind:value={priority}
-    />
+      bind:value={priority} />
   </div>
 
   <div class="form-group">

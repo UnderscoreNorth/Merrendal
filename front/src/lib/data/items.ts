@@ -227,6 +227,10 @@ export const items = {
     unit: "Unit",
     category: ["Luxuries"],
   },
+  "Planted Grain": {
+    unit: "Unit",
+    category: ["Crops"],
+  },
 } as const satisfies Record<string, ItemType>;
 export type Item = {
   type: "item";

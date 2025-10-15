@@ -65,14 +65,12 @@
       on:click={() => selectLord(lord, bonuses)}
       on:keydown={(e) => e.key === "Enter" && selectLord(lord, bonuses)}
       tabindex="0"
-      role="button"
-    >
+      role="button">
       <h3>{lord.fName}</h3>
       <img
         class="background-icon"
         src={`icons/lordBackgrounds/${lord.background}.png`}
-        alt="icon"
-      />
+        alt="icon" />
       <p class="background">
         Background: {lord.background}
         <br />
@@ -94,8 +92,7 @@
         <div>
           <span
             >Bonuses:
-            <hr /></span
-          >
+            <hr /></span>
         </div>
         <div class="stat">
           {#each Object.entries(bonuses) as [item, num]}

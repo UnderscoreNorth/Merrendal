@@ -1,53 +1,21 @@
-export function rollNewSTR(npc: NPC) {
-  if (npc.age < 9) return 1;
-  if (npc.age < 13) return rollRange(1, 2);
-  if (npc.age < 15) return rollRange(2, 3);
-  if (npc.age < 17) return rollRange(3, 4);
-  if (npc.age < 49) return rollRange(4, 5);
-  if (npc.age < 59) return rollRange(3, 4);
-  return rollRange(2, 3);
-}
-export function rollNewDEX(npc: NPC) {
-  if (npc.age < 9) return 1;
-  if (npc.age < 13) return rollRange(1, 2);
-  if (npc.age < 15) return rollRange(2, 3);
-  if (npc.age < 17) return rollRange(3, 4);
-  if (npc.age < 49) return rollRange(4, 5);
-  if (npc.age < 59) return rollRange(3, 4);
-  return rollRange(2, 3);
-}
+import type { Stats, Villager } from "$lib/data/living";
+import { rollRange } from "$lib/util/rolls";
 
-export function getStat(npc: NPC, stat: "str" | "dex") {
-  let base = npc.stats[stat];
-  for (let status of Object.values(npc.statuses)) {
-    for (let modifier of status.modifiers) {
-      if (modifier.type == "statModifier" && modifier.stat == stat) {
-        base += modifier.modifier;
-      }
-    }
-  }
-  return base;
-}
-
-export function getSkill(npc: NPC, occupation: string): number {
+export function getSkill(npc: Villager, occupation: string): number {
   return npc.skills[occupation] || 0;
 }
 
-export function increaseSkill(npc: NPC, occupation: string, amount: number) {
+export function increaseSkill(
+  npc: Villager,
+  occupation: string,
+  amount: number,
+) {
   if (!npc.skills[occupation]) {
     npc.skills[occupation] = 0;
   }
   npc.skills[occupation] = Math.min(100, npc.skills[occupation] + amount);
 }
 
-export function unassignNPC(npc: NPC) {
-  if (npc.job.attached) npc.job.attached.workers.delete(Number(npc.id));
-  npc.job = {
-    title: "None",
-    priority: 0,
-    stuck: false,
-  };
-}
 export function assignNPCs(
   gs: GameState,
   target: Building | Project,
@@ -129,4 +97,15 @@ export function assignNPCs(
     }
   }
   return assigned;
+}
+
+export function rollStats(): Stats {
+  return {
+    STR: rollRange(2, 7),
+    DEX: rollRange(2, 7),
+    CON: rollRange(2, 7),
+    WIS: rollRange(2, 7),
+    INT: rollRange(2, 7),
+    CHA: rollRange(2, 7),
+  };
 }

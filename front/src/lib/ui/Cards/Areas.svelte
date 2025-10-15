@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { areaTypes } from "$lib/data/areas";
   import { game, openModals } from "$lib/stores";
   import Collapsible from "../Collapsible.svelte";
   import type { Area } from "$lib/data/areas";
@@ -10,7 +9,7 @@
 </script>
 
 <div class="container">
-  {#each Object.keys(areaTypes) as areaType}
+  {#each Array.from(new Set($game.areas.map((i) => i.type))) as areaType}
     {#if $game.areas.filter((i) => i.type == areaType).length}
       <Collapsible headerName={areaType} headerType={3} hidden={true}>
         {#each $game.areas.filter((i) => i.type == areaType) as area}
@@ -22,8 +21,7 @@
                 <button
                   class="inspect-btn"
                   on:click={() => openAreaDetail(area)}
-                  title="View area details"
-                >
+                  title="View area details">
                   🔍
                 </button>
               </td>
