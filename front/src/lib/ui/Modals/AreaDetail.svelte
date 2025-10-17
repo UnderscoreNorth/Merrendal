@@ -1,20 +1,98 @@
 <script lang="ts">
   import { game, openModals } from "$lib/stores";
-  import type { Area } from "$lib/data/areas";
-  import { createMeetVillagersEvent } from "$lib/data/choices/meetVillagers";
+  import type { Area, ProjectType } from "$lib/data/areas";
+  import { recordLoop } from "$lib/util/recordLoop";
+  import {
+    type Building,
+    type BuildingType,
+    buildingTypes,
+  } from "$lib/data/buildings";
+  import { startConstruction } from "$lib/simulation/buildings";
+  import { assignNPCs, unassignNPC } from "$lib/simulation/living";
+  import { items } from "$lib/data/items";
 
-  export let area: Area;
-
-  $: villagersInArea = $game.npcs.filter(
-    (npc) => npc.homeAreaId === area.areaID,
-  );
-  $: unmetVillagers = villagersInArea.filter((npc) => !npc.metByLord);
-  $: metVillagers = villagersInArea.filter((npc) => npc.metByLord);
-
-  function meetVillagers() {
-    const event = createMeetVillagersEvent(area.areaID);
-    $game.choiceEvents.push(event);
-    $openModals["areaDetail"] = undefined;
+  $: area = $openModals["areaDetail"] as Area;
+  game.subscribe((a) => {
+    area = area;
+  });
+  function startConstructionHandler(selectedBuilding: BuildingType) {
+    if (checkDisabled(selectedBuilding) == "disabled") return;
+    startConstruction($game, selectedBuilding, area);
+    area = area;
+  }
+  $: getProgress = (project: ProjectType) => {
+    if (project.type == "demolition") return project.progress;
+    const buildingTemplate = buildingTypes[project.building.buildingType];
+    if (project.type == "construction") {
+      return `<table>${recordLoop(buildingTemplate.requirements)
+        .map(([itemName, amount]) => {
+          return `<tr>
+          <td>${itemName}</td>
+          <td>${project.progress[itemName] ?? 0}/</td>
+          <td>${amount}</td>
+          <td>${(((project.progress[itemName] ?? 0) / amount) * 100).toFixed(2)}%</td></tr>`;
+        })
+        .join("")}</table>`;
+    } else {
+      //@ts-ignore
+      return recordLoop(buildingTemplate.upgrades[project.upgrade].requirements)
+        .map(([itemName, amount]) => {
+          //@ts-ignore
+          return `${itemName} ${project.progress[itemName]}/${amount}`;
+        })
+        .join("<br>");
+    }
+  };
+  $: getMaintenance = (building: Building) => {
+    return `<table>${recordLoop(building.maintenanceCost)
+      .filter((i) => i[1] > 0)
+      .map(([itemName, amount]) => {
+        return `<tr>
+          <td>${itemName}</td>
+          <td>${amount?.toFixed(2)} ${items[itemName].unit}</td>
+          </tr>`;
+      })
+      .join("")}</table>`;
+  };
+  function addWorker(building: Building, num: number) {
+    if (num == 1) {
+      assignNPCs($game, building, 1);
+    } else {
+      const npc = $game.npcs.find(
+        (i) => i.id == Array.from(building.workers)[0],
+      );
+      if (npc !== undefined) unassignNPC($game, npc);
+    }
+    area = area;
+  }
+  function cancelProject(project: ProjectType) {
+    let index = area.currentProjects.findIndex((i) => i.id == project.id);
+    if (index >= 0) {
+      area.currentProjects.splice(index, 1);
+      area = area;
+    }
+  }
+  function checkDisabled(buildingType: BuildingType) {
+    const riverBuildings: BuildingType[] = [
+      "Stone Bridge",
+      "Wooden Bridge",
+      "Watermill",
+    ];
+    if (!area.terrain.river && riverBuildings.includes(buildingType))
+      return "disabled";
+    if (
+      area.buildingLand +
+        area.arableLand +
+        area.currentProjects
+          .filter((i) => i.type == "construction")
+          .reduce((a, b) => {
+            return a + buildingTypes[b.building.buildingType].size;
+          }, 0) +
+        buildingTypes[buildingType].size >
+      area.acres
+    )
+      return "disabled";
+    return "";
   }
 </script>
 
@@ -23,16 +101,36 @@
   <button
     on:click={() => {
       $openModals["areaDetail"] = undefined;
-    }}>X</button
-  >
+    }}>X</button>
 </h2>
 
 <div class="content">
   <section>
     <h3>Area Information</h3>
     <table>
-      <tr><th>Type</th><td>{area.type}</td></tr>
-      <tr><th>Size</th><td>{area.acres} Acres</td></tr>
+      <tr><th>Topography</th><td>{area.terrain.topography}</td></tr>
+      <tr><th>Forest Coverage</th><td>{area.terrain.forested}%</td></tr>
+      <tr
+        ><th>Village Land </th><td
+          >{area.buildingLand +
+            area.currentProjects
+              .filter((i) => i.type == "construction")
+              .reduce((a, b) => {
+                return a + buildingTypes[b.building.buildingType].size;
+              }, 0)} Acres</td
+        ></tr>
+      <tr><th>Arable Land </th><td>{area.arableLand} Acres</td></tr>
+      <tr
+        ><th>Unused Land </th><td
+          >{area.acres -
+            area.arableLand -
+            area.buildingLand -
+            area.currentProjects
+              .filter((i) => i.type == "construction")
+              .reduce((a, b) => {
+                return a + buildingTypes[b.building.buildingType].size;
+              }, 0)} Acres</td
+        ></tr>
       {#if Object.values(area.yieldEff).length}
         <tr>
           <th>Yield Efficiency</th>
@@ -45,139 +143,127 @@
       {/if}
     </table>
   </section>
-
+  <section></section>
   <section>
-    <h3>Residents</h3>
-    <p>Total villagers: {villagersInArea.length}</p>
-    {#if metVillagers.length > 0}
-      <p>Met: {metVillagers.map((v) => v.fName).join(", ")}</p>
-    {/if}
-    {#if unmetVillagers.length > 0}
-      <p>Unmet: {unmetVillagers.length}</p>
-    {/if}
+    {#each Array.from(new Set(Object.values(buildingTypes).map((i) => i.category))) as category}
+      {category}
+      <hr />
+      <div class="constructionContainer">
+        {#key area}
+          {#each recordLoop(buildingTypes).filter((i) => i[1].category == category) as [buildingType, buildingData]}
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <div
+              class={checkDisabled(buildingType)}
+              on:click={() => startConstructionHandler(buildingType)}
+              style:background-position={`${buildingData.icon.x * -64}px ${buildingData.icon.y * -64}px`}>
+              {buildingType}
+            </div>
+          {/each}
+        {/key}
+      </div>
+    {/each}
   </section>
-
-  <section>
+  <section class="buildings">
     <table>
-      {#if area.buildings.length}<tr
-          ><th>Buildings</th><td>
-            <table>
-              <tr><th>Building</th><th>Status</th><th>Workers</th></tr>
-              {#each area.buildings as building}
-                <tr>
-                  <td>{building.type}</td>
-                  <td>
-                    {#if building.status == "Built"}
-                      Built
-                    {:else}
-                      {building.daysToComplete} days left to build
-                    {/if}
-                  </td>
-                  <td>
-                    {#each $game.npcs
-                      .filter((i) => building.workers.has(Number(i.id)))
-                      .map((i) => i.fName) as worker}
-                      <div>{worker}</div>
-                    {/each}
-                  </td>
-                </tr>
+      {#if area.buildings.length}
+        <tr><th>Building</th><th>Status</th><th>Workers</th></tr>
+        {#each area.buildings as building}
+          <tr>
+            <td>{building.buildingType} </td>
+            <td>
+              {building.status}
+              <br />
+              {@html getMaintenance(building)}
+            </td>
+            <td>
+              {#each $game.npcs
+                .filter((i) => building.workers.has(i.id))
+                .map((i) => i.fName) as worker}
+                <div>{worker}</div>
               {/each}
-            </table>
-          </td></tr
-        >{/if}
+              {#if "liveIn" in buildingTypes[building.buildingType]}
+                {#each $game.npcs.filter((i) => i.home == building.id) as npc}
+                  <div>{npc.fName}</div>
+                {/each}
+              {/if}
+            </td>
+            {#if building.maxPops}
+              <td>
+                {building.workers.size}/{building.maxPops}
+                <br /><button
+                  disabled={building.workers.size >= building.maxPops}
+                  on:click={() => addWorker(building, 1)}>+</button
+                ><button
+                  disabled={building.workers.size == 0}
+                  on:click={() => addWorker(building, -1)}>-</button>
+              </td>
+            {/if}
+          </tr>
+        {/each}
+      {/if}
       {#if Object.values(area.currentProjects).length}
         <tr>
-          <th>Projects</th>
-          <td>
-            <table>
-              <tr>
-                <th>Project</th><th>Phase</th><th>Progress</th><th>Workers</th>
-              </tr>
-              {#each Object.values(area.currentProjects) as project}
-                <tr
-                  ><td>{project.type}</td><td
-                    >{project.phases[project.currentPhase - 1].name}</td
-                  ><td
-                    >{project.phases[
-                      project.currentPhase - 1
-                    ].progressPercent.toFixed(1)}%</td
-                  >
-                  <td>
-                    {#each $game.npcs
-                      .filter((i) => project.workers.has(Number(i.id)))
-                      .map((i) => i.fName) as worker}
-                      <div>{worker}</div>
-                    {/each}
-                  </td>
-                </tr>
-              {/each}
-            </table>
-          </td>
+          <th>Project</th><th>Progress</th><th>Priority</th>
         </tr>
+        {#each Object.values(area.currentProjects) as project}
+          <tr>
+            <td>{project.building.buildingType} {project.type}</td>
+            <td>{@html getProgress(project)}</td>
+            <td
+              ><input
+                class="priorityInput"
+                bind:value={project.priority}
+                type="number"
+                step="1"
+                min="1"
+                max="10" /></td>
+            <td
+              ><button on:click={() => cancelProject(project)}>Cancel</button
+              ></td>
+          </tr>
+        {/each}
       {/if}
     </table>
-  </section>
-
-  {#if area.type === "Manor"}
-    <section>
-      <h3>Archive Records</h3>
-      {#if $game.pastLords.length === 0}
-        <p>No records exist yet. You are the first lord of this land.</p>
-      {:else}
-        <p>Records of past lords who employed an archivist:</p>
-        {#each $game.pastLords.filter((lord) => lord.logs.length > 0) as pastLord}
-          <details>
-            <summary>
-              <strong>{pastLord.fName}</strong> - {pastLord.background} (Reign: {pastLord.reign} years, {pastLord.logs.length} entries)
-            </summary>
-            <div class="archive-logs">
-              {#if pastLord.logs.length > 0}
-                <table>
-                  <tr><th>Year</th><th>Day</th><th>Event</th></tr>
-                  {#each pastLord.logs as logEntry}
-                    <tr>
-                      <td>{logEntry.year}</td>
-                      <td>{logEntry.day}</td>
-                      <td>{logEntry.msg}</td>
-                    </tr>
-                  {/each}
-                </table>
-              {:else}
-                <p><i>No records were kept during this reign.</i></p>
-              {/if}
-            </div>
-          </details>
-        {/each}
-        {#if $game.pastLords.filter((lord) => lord.logs.length > 0).length === 0}
-          <p><i>No past lords employed an archivist. Their deeds are lost to history.</i></p>
-        {/if}
-      {/if}
-    </section>
-  {/if}
-
-  <section>
-    <h3>Actions</h3>
-    {#if $game.areaActionTaken}
-      <p class="disabled-text">
-        Area action already taken this period. Wait for the next period.
-      </p>
-    {:else if unmetVillagers.length > 0}
-      <button on:click={meetVillagers}>
-        Meet Villagers ({unmetVillagers.length} unmet)
-      </button>
-    {:else if villagersInArea.length > 0}
-      <p>You've met everyone here</p>
-    {:else}
-      <p>No villagers live in this area</p>
-    {/if}
   </section>
 </div>
 
 <style>
+  hr {
+    margin: 0.5rem 0;
+  }
+  .priorityInput {
+    font-family: inherit;
+    background: none;
+    width: 3rem;
+    font-size: 16px;
+    margin-right: 1rem;
+  }
+  .constructionContainer {
+    display: flex;
+    margin-bottom: 1rem;
+    gap: 5px;
+  }
+  .constructionContainer div {
+    width: 64px;
+    height: 64px;
+    text-align: center;
+    border: solid 1px black;
+    cursor: pointer;
+    background: url("icons/buildings/buildings.png");
+    background-size: 800% 400%;
+    color: gold;
+    text-shadow: 0 0 3px black;
+  }
+  .constructionContainer .disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
   h2 {
     margin: 0 0 1em 0;
   }
-
+  .buildings td {
+    padding: 0.5rem 0;
+  }
   h3 {
     margin: 0.5em 0;
     font-size: 1.1em;
@@ -203,8 +289,8 @@
   }
 
   .content {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: auto auto;
     gap: 1em;
   }
 
@@ -218,70 +304,11 @@
   }
 
   th {
-    text-align: left;
+    text-align: right;
     padding-right: 1em;
   }
 
   td {
     text-align: right;
-  }
-
-  p {
-    margin: 0.5em 0;
-  }
-
-  .disabled-text {
-    color: #888;
-    font-style: italic;
-  }
-
-  details {
-    margin: 0.5em 0;
-    border: 1px solid #444;
-    padding: 0.5em;
-    background: rgba(0, 0, 0, 0.2);
-  }
-
-  summary {
-    cursor: pointer;
-    font-weight: bold;
-    padding: 0.25em;
-  }
-
-  summary:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .archive-logs {
-    margin-top: 0.5em;
-    padding: 0.5em;
-    max-height: 400px;
-    overflow-y: auto;
-  }
-
-  .archive-logs table {
-    width: 100%;
-    font-size: 0.9em;
-  }
-
-  .archive-logs tr {
-    border-bottom: 1px solid #333;
-  }
-
-  .archive-logs th {
-    text-align: left;
-    padding: 0.25em;
-    background: rgba(0, 0, 0, 0.3);
-  }
-
-  .archive-logs td {
-    padding: 0.25em;
-    vertical-align: top;
-  }
-
-  .archive-logs td:first-child,
-  .archive-logs td:nth-child(2) {
-    text-align: center;
-    width: 60px;
   }
 </style>

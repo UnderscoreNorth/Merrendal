@@ -3,7 +3,7 @@ import { type GameState } from "$lib/stores";
 import { pick } from "$lib/util/rolls";
 import { getAllBuildings } from "./buildings";
 import { calculateDaysOfFoodRemaining } from "./food";
-import { rollStats } from "./living";
+import { rollStats, unassignNPC } from "./living";
 import { log } from "./log";
 import { v4 as uuidv4 } from "uuid";
 
@@ -27,9 +27,7 @@ export function killNPC(npc: Villager, cause: string, gs: GameState): void {
       period: gs.currentPeriod,
     },
   };
-  for (const building of getAllBuildings(gs)) {
-    building.workers.delete(Number(npc.id));
-  }
+  unassignNPC(gs, npc);
   // Remove from daily worker activity if present
   gs.dailyWorkerActivity.delete(npc.id);
   //if (gs.lord) gs.lord.reignStats.died++;
@@ -70,7 +68,7 @@ export function processOldAgeDeaths(gs: GameState) {
     if (npc.age > 40) {
       const deathChance = 1 - Math.pow(0.999999, Math.pow(npc.age - 40, 2));
       if (Math.random() < deathChance) {
-        killNPC(npc, "Natural Causes", gs);
+        //killNPC(npc, "Natural Causes", gs);
       }
     }
   }
@@ -88,8 +86,6 @@ export function processBirths(gs: GameState) {
       1;
     if (Math.random() < birthChance) {
       // Find village for home area
-      const village = gs.areas.find((a) => a.type === "Village");
-      const homeAreaId = village ? village.areaID : gs.areas[0]?.areaID || "";
 
       const newNPC: Villager = {
         id: uuidv4(),
@@ -109,6 +105,7 @@ export function processBirths(gs: GameState) {
         equipement: [],
         home: "",
         type: "Villager",
+        health: 100,
       };
       gs.npcs.push(newNPC);
       log(gs, `<i>${newNPC.fName}</i> was born.`, ["Mortality"]);

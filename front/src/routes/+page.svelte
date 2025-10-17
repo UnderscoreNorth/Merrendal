@@ -5,7 +5,7 @@
   import Collapsible from "$lib/ui/Collapsible.svelte";
   import Areas from "$lib/ui/Cards/Areas.svelte";
   import Logs from "$lib/ui/Cards/Logs.svelte";
-  import Map from "$lib/ui/Map.svelte";
+  import Map from "$lib/ui/Map/Map.svelte";
   import Time from "$lib/ui/Cards/Time.svelte";
   import Population from "$lib/ui/Cards/Population.svelte";
   import Supplies from "$lib/ui/Cards/Supplies.svelte";
@@ -13,6 +13,7 @@
   import Modal from "$lib/ui/Modals/Modal.svelte";
   import PopulationModal from "$lib/ui/Modals/PopulationModal.svelte";
   import SelectedCell from "$lib/ui/Modals/SelectedCell.svelte";
+  import AreaDetail from "$lib/ui/Modals/AreaDetail.svelte";
   init();
 </script>
 
@@ -29,6 +30,10 @@
     </Card>
     <Card draggable={true} padding={1} modal="selectedCell">
       <SelectedCell />
+    </Card>
+
+    <Card draggable={false} padding={1} modal="areaDetail">
+      <AreaDetail />
     </Card>
   </Modal>
   <div class="overlay">

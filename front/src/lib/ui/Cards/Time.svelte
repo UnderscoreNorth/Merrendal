@@ -24,6 +24,11 @@
   } as const;
 </script>
 
+<svelte:window
+  on:keydown={(e) => {
+    if (e.code == "Space") runDays(1);
+  }} />
+
 <div class="time-display">
   <div class="season">
     {seasonEmoji[$game.season]}
@@ -35,23 +40,19 @@
     <button
       disabled={$game.pending}
       class="primary-btn"
-      on:click={() => runDays(1)}>▶️</button
-    >
+      on:click={() => runDays(1)}>▶️</button>
     <button
       disabled={$game.pending}
       class="primary-btn"
-      on:click={() => runDays(90 * 3)}>⏩</button
-    >
+      on:click={() => runDays(90 * 3)}>⏩</button>
     <button
       disabled={$game.pending}
       class="primary-btn"
-      on:click={() => runDays(365 * 3)}>⏭️</button
-    >
+      on:click={() => runDays(365 * 3)}>⏭️</button>
     <button
       disabled={$game.pending}
       class="primary-btn"
-      on:click={() => runDays(365 * 10 * 3, true)}>🔁️</button
-    >
+      on:click={() => runDays(365 * 10 * 3, true)}>🔁️</button>
   </div>
   <div style:grid-area="3 / 2 / 4 / 3">
     {$game.currentPeriod} <input type="checkbox" bind:checked={$autoPlay} />

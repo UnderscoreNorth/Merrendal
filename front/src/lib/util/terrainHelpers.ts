@@ -34,7 +34,7 @@ export function shuffle(array: Array<any>) {
   }
 }
 
-export function fromCube(c: Cube | TerrainTile) {
+export function fromCube(c: Cube) {
   return `${c.q},${c.s},${c.r}`;
 }
 export function toCube(qsr: string): Cube {

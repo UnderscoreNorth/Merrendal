@@ -22,8 +22,8 @@
       </tr>
     {/each}
     <tr
-      ><th>Unemployed</th><td
-        >{npcs.filter((i) => i?.job?.title == "None" && i.age >= 16).length}</td
+      ><th>Unassigned</th><td
+        >{npcs.filter((i) => i?.job?.title == "" && i.age >= 16).length}</td
       ></tr>
     <tr><th>Adults</th><td>{npcs.filter((i) => i.age >= 16).length}</td></tr>
     <tr><th>Children</th><td>{npcs.filter((i) => i.age < 16).length}</td></tr>
@@ -45,6 +45,7 @@
     {/each}
   </div>
 </div>
+fdsfdfd>>
 
 <style>
   table {

@@ -9,10 +9,10 @@
 </script>
 
 <div class="container">
-  {#each Array.from(new Set($game.areas.map((i) => i.type))) as areaType}
-    {#if $game.areas.filter((i) => i.type == areaType).length}
+  {#each Array.from(new Set($game.areas.map((i) => i.terrain.topography))) as areaType}
+    {#if $game.areas.filter((i) => i.terrain.topography == areaType).length}
       <Collapsible headerName={areaType} headerType={3} hidden={true}>
-        {#each $game.areas.filter((i) => i.type == areaType) as area}
+        {#each $game.areas.filter((i) => i.terrain.topography == areaType) as area}
           <table>
             <tr>
               <th>Name</th>

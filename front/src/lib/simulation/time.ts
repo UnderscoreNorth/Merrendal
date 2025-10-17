@@ -29,8 +29,6 @@ export function advanceTime(gs: GameState) {
     processOldAgeDeaths(gs);
     processBirths(gs);
   }
-  // Clear worker activity and reset area action each period
-  gs.dailyWorkerActivity.clear();
   gs.areaActionTaken = false;
 
   function processSeasons() {

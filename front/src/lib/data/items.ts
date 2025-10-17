@@ -1,4 +1,4 @@
-export type ItemUnit = "Ton" | "KCal" | "Lb" | "Unit" | "Bushel";
+export type ItemUnit = "Ton" | "KCal" | "Lb" | "Unit" | "Bushel" | "Cask";
 export type ItemCategory =
   | "Crops"
   | "Food"
@@ -44,11 +44,11 @@ export const items = {
     category: ["Crops", "Protein", "Food"],
   },
   Ale: {
-    unit: "Unit",
+    unit: "Cask",
     category: ["Drink", "Food"],
   },
   Wine: {
-    unit: "Unit",
+    unit: "Cask",
     category: ["Drink", "Food"],
   },
   Bread: {
@@ -76,11 +76,11 @@ export const items = {
     category: ["Food", "Protein"],
   },
   Lumber: {
-    unit: "Ton",
+    unit: "Lb",
     category: ["Raw Good"],
   },
   Stone: {
-    unit: "Ton",
+    unit: "Lb",
     category: ["Raw Good"],
   },
   "Iron Ore": {
@@ -187,14 +187,6 @@ export const items = {
     unit: "Unit",
     category: ["Equipment"],
   },
-  Pickaxes: {
-    unit: "Unit",
-    category: ["Equipment"],
-  },
-  Woodaxes: {
-    unit: "Unit",
-    category: ["Equipment"],
-  },
   Books: {
     unit: "Unit",
     category: ["Equipment"],
@@ -215,21 +207,13 @@ export const items = {
     unit: "Unit",
     category: ["Clothing"],
   },
-  Pottery: {
-    unit: "Unit",
-    category: ["Luxuries"],
-  },
-  Dinnerware: {
-    unit: "Unit",
-    category: ["Luxuries"],
-  },
-  Jewelry: {
-    unit: "Unit",
-    category: ["Luxuries"],
-  },
   "Planted Grain": {
     unit: "Unit",
     category: ["Crops"],
+  },
+  "Fired Clay": {
+    unit: "Lb",
+    category: ["Good"],
   },
 } as const satisfies Record<string, ItemType>;
 export type Item = {

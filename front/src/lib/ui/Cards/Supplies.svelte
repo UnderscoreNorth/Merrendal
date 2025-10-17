@@ -10,18 +10,22 @@
   <tr>
     <td colspan="4"
       >Days of food remaining: {daysOfFood.toFixed(1)}
-      <hr /></td
-    >
+      <hr /></td>
   </tr>
   {#each recordLoop($game.inventory || {}) as [item, quantity]}
     <tr>
       <th>{item}</th>
-      <td class="quantity">{quantity?.toFixed(2)}</td>
-      <td>{items[item].unitType}</td>
+      {#if items[item].unit == "Lb" && quantity !== undefined && quantity >= 2240 * 100}
+        <td class="quantity">{(quantity / 2240)?.toFixed(2)}</td>
+        <td>Ton</td>
+      {:else}
+        <td class="quantity">{quantity?.toFixed(2)}</td>
+        <td>{items[item].unit}</td>
+      {/if}
+
       {#if $game.priorInventory[item] !== undefined}
         <td class="quantity"
-          >{((quantity ?? 0) - $game.priorInventory[item]).toFixed(2)}</td
-        >
+          >{((quantity ?? 0) - $game.priorInventory[item]).toFixed(2)}</td>
       {/if}
     </tr>
   {/each}

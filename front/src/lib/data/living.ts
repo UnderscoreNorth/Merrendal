@@ -28,6 +28,7 @@ export type Human = Being & {
   stats: Stats;
   equipement: [];
   hunger: number;
+  health: number;
 };
 
 export type Villager = Human & {

@@ -6,83 +6,23 @@ import { game, map } from "./stores";
 import { rollRange } from "./util/rolls";
 import { v4 as uuidv4 } from "uuid";
 export function init() {
-  let num = 20;
+  let num = 10;
   const npcs: Villager[] = [];
   let bread = 0;
-  const mapSize = 15;
+  const mapSize = 50;
   const mapData = new Map(mapSize, []);
   const areas: Area[] = [];
-
-  for (let i in mapData.farms) {
-    const farmTile = mapData.farms[i];
-    const farm: Area = {
-      areaID: "Farm" + i.toString(),
-      buildings: [],
-      acres: Math.ceil((1 - farmTile.forested / 100) * 50),
-      type: "Farm",
-      currentProjects: [],
-      yieldEff: { Grain: farmTile.yield },
-      loc: { q: farmTile.q, s: farmTile.s, r: farmTile.r },
-      arableLand: 100,
-      yields: {},
-    };
-    areas.push(farm);
-  }
-  for (let i in mapData.lumberYards) {
-    const forestTile = mapData.lumberYards[i];
-    const forest: Area = {
-      areaID: "Forest" + i.toString(),
-      type: "Forest",
-      acres: rollRange(800, 2000),
-      buildings: [],
-      currentProjects: [],
-      yieldEff: {
-        Lumber: forestTile.forested / 100,
-        Meat: forestTile.yield,
-      },
-      loc: { q: forestTile.q, s: forestTile.s, r: forestTile.r },
-      yields: {},
-      arableLand: 0,
-    };
-    areas.push(forest);
-  }
 
   // Create village
   let villageId = "";
   for (let i in mapData.villages) {
     const villageTile = mapData.villages[i];
-    const village: Area = {
-      areaID: "Village" + i,
-      type: "Village",
-      acres: rollRange(5, 10),
-      buildings: [],
-      yieldEff: {},
-      currentProjects: [],
-      loc: { q: villageTile.q, s: villageTile.s, r: villageTile.r },
-      yields: {},
-      arableLand: 0,
-    };
-    areas.push(village);
-    villageId = village.areaID;
+    areas.push(villageTile);
+    villageId = villageTile.areaID;
   }
 
-  // Create Manor
-  const manorTile = mapData.villages[0]; // Place near first village
-  const manor: Area = {
-    areaID: "Manor",
-    type: "Manor",
-    acres: rollRange(10, 20),
-    buildings: [],
-    yieldEff: {},
-    currentProjects: [],
-    loc: { q: manorTile.q + 1, s: manorTile.s, r: manorTile.r - 1 },
-    arableLand: 0,
-    yields: {},
-  };
-  areas.push(manor);
-
   // Initialize NPCs after areas are created so we can assign home areas
-  for (let i = 0; i <= num; i++) {
+  for (let i = 0; i < num; i++) {
     const age = Math.ceil(Math.random() * 40) + 20;
     bread += age > 16 ? 2 * 365 : 1.5 * 365;
     const npc: Villager = {
@@ -90,7 +30,7 @@ export function init() {
       fName: generateFName(),
       age,
       job: {
-        title: "None",
+        title: "",
         stuck: false,
       },
       birthday: rollRange(1, 365),
@@ -103,8 +43,13 @@ export function init() {
       children: [],
       apprentices: [],
       type: "Villager",
+      health: 100,
     };
     npcs.push(npc);
+    if (i % 2 == 1) {
+      npc.spouse = npcs[i - 1].id;
+      npcs[i - 1].spouse = npc.id;
+    }
   }
   game.set({
     npcs,
@@ -125,7 +70,7 @@ export function init() {
     needs: {},
     map: mapData,
     pause: true,
-    pending: true,
+    pending: false,
     activeEvents: [],
     village: {
       trust: 700,
@@ -135,7 +80,7 @@ export function init() {
 
   map.set(
     Object.values(mapData.tiles).sort((a, b) => {
-      return a.r - b.r;
+      return a.loc.r - b.loc.r;
     }),
   );
 }
