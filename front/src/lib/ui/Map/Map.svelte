@@ -185,8 +185,8 @@
     requestAnimationFrame(() => {
       mapContainer.scale.set($view.zoom);
       mapContainer.position.set(
-        ($view.x + $view.xDiff) * $view.zoom + $view.renderSize / 2,
-        ($view.y + $view.yDiff) * $view.zoom + $view.renderSize / 2,
+        ($view.x + $view.xDiff) * $view.zoom,
+        ($view.y + $view.yDiff) * $view.zoom,
       );
       //if (app.ticker) app.ticker.stop();
     });
@@ -359,6 +359,7 @@
       view.update((v) => {
         v.x += v.xDiff;
         v.y += v.yDiff;
+
         v.xDiff = 0;
         v.yDiff = 0;
         return v;

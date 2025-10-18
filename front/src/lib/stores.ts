@@ -67,8 +67,8 @@ export type View = {
 };
 export const view = writable<View>({
   zoom: 1,
-  x: 0,
-  y: 0,
+  x: 600,
+  y: 600,
   xDiff: 0,
   yDiff: 0,
   renderSize: 1000,

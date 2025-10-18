@@ -93,7 +93,7 @@ export function drawTrees(
       );
 
       // Scale trees appropriately
-      const treeScale = typeof pos.var == "number" ? u / 80 : u / 500; // Adjust scale as needed
+      const treeScale = typeof pos.var == "number" ? u / 120 : u / 500; // Adjust scale as needed
       treeSprite.scale.set(treeScale, treeScale);
 
       // Add some random brightness variation
