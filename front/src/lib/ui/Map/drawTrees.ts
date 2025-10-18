@@ -19,8 +19,6 @@ export function drawTrees(
   fullTrees: PIXI.Texture[],
   cell: TerrainTile,
   u: number,
-  tileX: number,
-  tileY: number,
 ) {
   const key = fromCube(cell.loc);
   const availablePositions = treeSprites[key];
@@ -88,14 +86,14 @@ export function drawTrees(
       treeSprite.anchor.set(0.5, 0.8); // Anchor at bottom center of tree
 
       // Position relative to tile center
-      const hexRadius = u * 0.8; // Approximate hex radius for positioning
+      const hexRadius = u; // Approximate hex radius for positioning
       treeSprite.position.set(
-        tileX + pos.x * hexRadius,
-        tileY + pos.y * hexRadius * 0.7 + 1.5, // Slightly compress Y to fit hex better
+        pos.x * hexRadius,
+        pos.y * hexRadius * 0.7, // Slightly compress Y to fit hex better
       );
 
       // Scale trees appropriately
-      const treeScale = typeof pos.var == "number" ? u / 160 : u / 500; // Adjust scale as needed
+      const treeScale = typeof pos.var == "number" ? u / 80 : u / 500; // Adjust scale as needed
       treeSprite.scale.set(treeScale, treeScale);
 
       // Add some random brightness variation

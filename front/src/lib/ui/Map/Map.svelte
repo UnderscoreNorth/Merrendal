@@ -3,7 +3,11 @@
   import * as PIXI from "pixi.js";
   import { game, map, openModals, view } from "$lib/stores";
   import type { TerrainTile } from "../../map/generation";
-  import { fromCube, shuffle } from "$lib/util/terrainHelpers";
+  import {
+    fromCube,
+    shuffle,
+    rotateCubeCoordinates,
+  } from "$lib/util/terrainHelpers";
   import { drawTrees, getTreePositions, type TreeCoord } from "./drawTrees";
   import { loadTilesheet } from "./init";
   import { BloomFilter, GlowFilter } from "pixi-filters";
@@ -25,7 +29,6 @@
   let tilesheetLoaded = false;
   let season = "";
   let lakes: Set<string> = new Set();
-
   function getTileTexture(cell: TerrainTile): PIXI.Texture | null {
     if (!tilesheetLoaded) return null;
     let tileName: keyof typeof tilesheet = cell.terrain.topography;
@@ -61,18 +64,24 @@
     }
     if (cell.terrain.topography == "Mountain") elevation -= 0.5;
 
-    const x = u * ((3 * cell.loc.q) / 2);
+    // Apply rotation to coordinates
+    const rotations = $view.rotation / 60; // Convert degrees to number of 60° rotations
+    const rotatedLoc = rotateCubeCoordinates(cell.loc, rotations);
+
+    const x = u * ((3 * rotatedLoc.q) / 2);
     const y =
       u *
-      ((Math.sqrt(3) * cell.loc.q) / 2 +
-        Math.sqrt(3) * cell.loc.r -
+      ((Math.sqrt(3) * rotatedLoc.q) / 2 +
+        Math.sqrt(3) * rotatedLoc.r -
         elevation * 0.2) *
       0.75;
+    const layer =
+      (Math.sqrt(3) * rotatedLoc.q) / 2 + Math.sqrt(3) * rotatedLoc.r;
     const seed = (cell.loc.q * 73856093) ^ (cell.loc.r * 19349663);
     const shouldFlip = seed % 2 === 0;
     const xScale = ((shouldFlip ? 1 : -1) * (u * 2)) / 240;
     const yScale = (u * 2) / 310;
-    if (!sprite) {
+    if (sprite == undefined) {
       sprite = new PIXI.Sprite(texture);
       mapSprites[fromCube(cell.loc)] = {
         container: new PIXI.Container(),
@@ -81,7 +90,7 @@
       };
       data = mapSprites[fromCube(cell.loc)];
       data.container.eventMode = "static";
-      data.container.hitArea = new PIXI.Circle(x, y + 2.2 * u, 3 * u);
+      data.container.hitArea = new PIXI.Circle(0, 2 * u, 3 * u);
       new PIXI.Polygon([]);
       data.container.on("pointerdown", () => {
         openArea(cell.loc.q, cell.loc.r, cell.loc.s);
@@ -95,8 +104,9 @@
       mapContainer.addChild(data.container);
       sprite.anchor.set(0.5, 0.15);
       data.container.addChild(sprite);
-      sprite.position.set(x, y);
+      data.container.position.set(x, y);
       sprite.scale.set(xScale, yScale);
+      sprite.position.set(0, 0);
       let brightness = 1;
       if (cell.terrain.topography === "Water") {
         brightness = 0.4 + ((cell.terrain.elevation + 3) / 3) * 0.6;
@@ -113,38 +123,17 @@
         if (!texture) console.log(cell.terrain.river);
         river.anchor.set(0.5, 0.5);
         data.container.addChild(river);
-        river.position.set(x, y);
+        river.position.set(0, 0);
         river.scale.set(Math.abs(xScale), yScale);
       }
     } else {
-      sprite.position.set(x, y);
-      sprite.scale.set(xScale, yScale);
+      data.container.position.set(x, y);
     }
+    data = mapSprites[fromCube(cell.loc)];
+    data.container.zIndex = layer;
     // Draw trees on top of the base tile
     const area = $game.areas.find((i) => fromCube(i.loc) == fromCube(cell.loc));
-    drawTrees(
-      treeSprites,
-      mapSprites,
-      area,
-      buildingSheet,
-      fullTrees,
-      cell,
-      u,
-      x,
-      y,
-    );
-    const text = new PIXI.Text({
-      text: `q:${cell.loc.q}, s:${cell.loc.s}, r:${cell.loc.r}`,
-      style: {
-        fontSize: 5,
-        fill: "white",
-        wordWrap: true,
-        wordWrapWidth: 20,
-      },
-    });
-    text.anchor.set(0.5, 0.5);
-    text.position.set(x, y);
-    //mapContainer.addChild(text);
+    drawTrees(treeSprites, mapSprites, area, buildingSheet, fullTrees, cell, u);
   }
   function openArea(q: number, r: number, s: number) {
     const area = $game.areas.find(
@@ -169,6 +158,7 @@
       }
     }
     const u = $view.renderSize / (($game.mapSize * 4) / 2);
+
     for (const cell of $map) {
       drawTile(cell, u);
     }
@@ -200,6 +190,16 @@
       );
       //if (app.ticker) app.ticker.stop();
     });
+  }
+
+  function rotateMap() {
+    view.update((v) => {
+      v.rotation = (v.rotation + 270) % 360;
+      return v;
+    });
+    // Rebuild the map with rotated coordinates
+    isMapBuilt = false;
+    buildMap();
   }
 
   onMount(async () => {
@@ -380,6 +380,21 @@
     isMapBuilt = false;
     buildMap();
   }} />
+<button class="rotate-button" on:click={rotateMap} title="Rotate Map">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round">
+    <path
+      d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+  </svg>
+</button>
 <div
   bind:this={container}
   bind:clientHeight={h}
@@ -407,5 +422,33 @@
   div {
     position: relative;
     height: min(100svh, 100vw);
+  }
+  .rotate-button {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background-color: rgba(58, 59, 60, 0.9);
+    border: 2px solid gold;
+    color: gold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    transition: all 0.2s ease;
+  }
+  .rotate-button:hover {
+    background-color: rgba(78, 79, 80, 0.95);
+    transform: rotate(60deg);
+  }
+  .rotate-button:active {
+    transform: scale(0.95) rotate(60deg);
+  }
+  .rotate-button svg {
+    width: 1.5rem;
+    height: 1.5rem;
   }
 </style>

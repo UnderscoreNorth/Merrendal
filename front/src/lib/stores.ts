@@ -63,6 +63,7 @@ export type View = {
   y: number;
   xDiff: number;
   yDiff: number;
+  rotation: number;
 };
 export const view = writable<View>({
   zoom: 1,
@@ -71,6 +72,7 @@ export const view = writable<View>({
   xDiff: 0,
   yDiff: 0,
   renderSize: 1000,
+  rotation: 0,
 });
 export const openModals = writable<Record<string, any>>({});
 export const mouseCood = writable<{ x: number; y: number }>({ x: 0, y: 0 });

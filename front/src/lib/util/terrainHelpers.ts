@@ -110,3 +110,21 @@ export function getNeighboringCubes(cube: Cube): Cube[] {
   }
   return neighbors;
 }
+
+export function rotateCubeCoordinates(cube: Cube, rotations: number): Cube {
+  // Rotate cube coordinates by 60 degrees clockwise (rotations times)
+  // For hexagonal grids, rotating 60° clockwise: (q, r, s) -> (-s, -q, -r)
+  let result = { ...cube };
+  const normalizedRotations = ((rotations % 6) + 6) % 6; // Normalize to 0-5
+
+  for (let i = 0; i < normalizedRotations; i++) {
+    const temp = result;
+    result = {
+      q: -temp.s,
+      r: -temp.q,
+      s: -temp.r,
+    };
+  }
+
+  return result;
+}
