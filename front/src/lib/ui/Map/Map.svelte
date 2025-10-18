@@ -6,6 +6,7 @@
   import { fromCube, shuffle } from "$lib/util/terrainHelpers";
   import { drawTrees, getTreePositions, type TreeCoord } from "./drawTrees";
   import { loadTilesheet } from "./init";
+  import { BloomFilter, GlowFilter } from "pixi-filters";
 
   let h: number;
   let container: HTMLDivElement;
@@ -86,9 +87,7 @@
         openArea(cell.loc.q, cell.loc.r, cell.loc.s);
       });
       data.container.on("mouseover", () => {
-        const brightness = new PIXI.ColorMatrixFilter();
-        brightness.brightness(1.5, false);
-        data.container.filters = [brightness];
+        data.container.filters = [new BloomFilter({ strength: 3 })];
       });
       data.container.on("mouseleave", () => {
         data.container.filters = [];
@@ -151,7 +150,13 @@
     const area = $game.areas.find(
       (a) => a.loc.q == q && a.loc.r == r && a.loc.s == s,
     );
-    if (area !== undefined) $openModals["areaDetail"] = area;
+    if (area !== undefined) {
+      $openModals["areaDetail"] = area;
+    } else if ($game.map !== undefined) {
+      const newArea = $game.map.tiles[fromCube({ q, r, s })];
+      if (newArea.terrain.topography == "Plains")
+        $openModals["startingArea"] = newArea;
+    }
   }
 
   function buildMap() {
@@ -216,7 +221,8 @@
     tilesheetLoaded = true;
     initTrees();
     buildMap();
-    game.subscribe(() => {
+    game.subscribe((g) => {
+      if (!g.render) return;
       isMapBuilt = false;
       buildMap();
     });

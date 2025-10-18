@@ -62,7 +62,7 @@ export class TerrainTile implements Area {
     this.groupID = "";
     this.yield = 0;
     this.areaID = fromCube(this.loc);
-    this.acres = 10;
+    this.acres = 4;
     if (q + s + r !== 0) {
       console.trace("yeah");
       throw `${q} ${s} ${r} is not a valid coord`;
@@ -313,10 +313,10 @@ export class Map {
       }
     }
     //River generation
-    shuffle(mountains);
+    shuffle(this.land);
     let riverTiles: TerrainTile[] = [];
-    for (let i = 0; i < Math.min(10, mountains.length); i++) {
-      let tile = mountains[i];
+    for (let i = 0; i < 20; i++) {
+      let tile = this.tiles[fromCube(this.land[i])];
       let foundWater = false;
       let attempts = 0;
       this.lifted = [];
@@ -633,7 +633,7 @@ export class Map {
       //console.log("Forest " + attempt);
       let cood = this.getRandomLandPoint("Plains");
       this.spreadTree(cood, 1, -1);
-    } while (this.lifted.length < numPlains / 2);
+    } while (this.lifted.length < numPlains * 0.75);
     //console.log("Forests generated");
 
     const tilesToEvaluate = Object.keys(this.tiles);

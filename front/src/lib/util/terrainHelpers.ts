@@ -100,3 +100,13 @@ export function direction(cood: Cube, dir: number) {
   }
   return cood;
 }
+
+export function getNeighboringCubes(cube: Cube): Cube[] {
+  const neighbors: Cube[] = [];
+  // Get all 6 neighboring hexagonal tiles
+  for (let dir = 0; dir < 6; dir++) {
+    const neighbor = direction({ ...cube }, dir);
+    neighbors.push(neighbor);
+  }
+  return neighbors;
+}

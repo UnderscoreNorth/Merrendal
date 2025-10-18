@@ -6,13 +6,15 @@
   async function runDays(number: number, fast = false) {
     if (debounce) return;
     debounce = true;
-    $game.pause = false;
+    $game.render = false;
     for (let i = 0; i < number; i++) {
       simulateDay();
       if ($game.pause) break;
-      if (!fast || (fast && i % 90 == 0))
+      if (!fast || (fast && i % 90 == 0)) {
         await new Promise((r) => setTimeout(r, 1));
+      }
     }
+    $game.render = true;
     debounce = false;
   }
 

@@ -69,13 +69,14 @@ export function init() {
     mapSize,
     needs: {},
     map: mapData,
-    pause: true,
+    pause: false,
     pending: false,
     activeEvents: [],
     village: {
       trust: 700,
       authority: 700,
     },
+    render: true,
   });
 
   map.set(

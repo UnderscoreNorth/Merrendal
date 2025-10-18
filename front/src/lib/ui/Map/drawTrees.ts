@@ -2,7 +2,12 @@ import { type Area } from "$lib/data/areas";
 import { type TerrainTile } from "$lib/map/generation";
 import { fromCube, shuffle } from "$lib/util/terrainHelpers";
 import * as PIXI from "pixi.js";
-export type TreeCoord = { x: number; y: number; var: number; curr: string };
+export type TreeCoord = {
+  x: number;
+  y: number;
+  var: number | string;
+  curr: string;
+};
 export function drawTrees(
   treeSprites: Record<string, TreeCoord[]>,
   mapSprites: Record<
@@ -20,32 +25,65 @@ export function drawTrees(
   const key = fromCube(cell.loc);
   const availablePositions = treeSprites[key];
   const maxTrees = availablePositions.length;
-  const desiredTrees = Math.floor(cell.terrain.forested / 4);
+  const desiredTrees = Math.floor(cell.terrain.forested / 5);
   const treeCount = Math.min(desiredTrees, maxTrees);
   const numBuildings = area !== undefined ? area.buildings.length : 0;
-  const treePositions = availablePositions
-    .slice(0, treeCount + numBuildings)
-    .sort((a, b) => a.y - b.y);
-  availablePositions.slice(treeCount + numBuildings).forEach((_, index) => {
-    const data = mapSprites[fromCube(cell.loc)];
-    const sprite = data.trees[index]; //actualTreeSprites.get(spriteKey);
-    if (sprite) {
-      if (numBuildings > 0) console.log({ index });
-      //data.container.removeChild(sprite);
-      //sprite.destroy();
+
+  let currentTrees = availablePositions.filter((i) => i.curr == "tree").length;
+  const data = mapSprites[fromCube(cell.loc)];
+  if (currentTrees < treeCount) {
+    for (let i = 0; i < maxTrees; i++) {
+      if (availablePositions[i].curr == "") {
+        availablePositions[i].curr = "tree";
+        currentTrees++;
+        if (currentTrees == treeCount) break;
+      }
     }
-  });
-  if (area !== undefined) {
-    for (let i = treeCount; i < treeCount + numBuildings; i++) {
-      treePositions[i].curr = area.buildings[i].buildingType;
+  } else if (currentTrees > treeCount) {
+    for (let i = 0; i < maxTrees; i++) {
+      if (availablePositions[i].curr == "tree") {
+        availablePositions[i].curr = "";
+        currentTrees--;
+        const sprite = data.trees[i];
+        data.container.removeChild(sprite);
+        sprite.destroy();
+        if (currentTrees == treeCount) break;
+      }
     }
   }
+  if (area !== undefined) {
+    for (let i = 0; i < numBuildings; i++) {
+      const building = area.buildings[i];
+      let index = availablePositions.findIndex((j) => j.curr == building.id);
+      if (index >= 0) continue;
+      for (let j = 0; j < maxTrees; j++) {
+        if (availablePositions[j].curr == "") {
+          availablePositions[j].curr = area.buildings[i].id;
+          availablePositions[j].var = area.buildings[i].buildingType;
+          break;
+        }
+      }
+    }
+    for (let i = 0; i < maxTrees; i++) {
+      const buildingID = availablePositions[i].curr;
+      if (buildingID == "tree" || buildingID == "") continue;
+      if (area.buildings.filter((j) => j.id == buildingID).length == 0) {
+        availablePositions[i].var = 0;
+        const sprite = data.trees[i];
+        data.container.removeChild(sprite);
+        sprite.destroy();
+      }
+    }
+  }
+  const treePositions = availablePositions.sort((a, b) => a.y - b.y);
   treePositions.forEach((pos, index) => {
+    if (pos.curr == "") return;
     const data = mapSprites[fromCube(cell.loc)];
     if (!data.trees[index]) {
       const texture =
-        index < treeCount ? fullTrees[pos.var] : buildingSheet[pos.curr];
-      if (pos.curr) console.log(texture);
+        typeof pos.var == "number"
+          ? fullTrees[pos.var]
+          : buildingSheet[pos.var];
       const treeSprite = new PIXI.Sprite(texture);
       treeSprite.anchor.set(0.5, 0.8); // Anchor at bottom center of tree
 
@@ -53,15 +91,16 @@ export function drawTrees(
       const hexRadius = u * 0.8; // Approximate hex radius for positioning
       treeSprite.position.set(
         tileX + pos.x * hexRadius,
-        tileY + pos.y * hexRadius * 0.7, // Slightly compress Y to fit hex better
+        tileY + pos.y * hexRadius * 0.7 + 1.5, // Slightly compress Y to fit hex better
       );
 
       // Scale trees appropriately
-      const treeScale = index < treeCount ? u / 160 : u / 500; // Adjust scale as needed
+      const treeScale = typeof pos.var == "number" ? u / 160 : u / 500; // Adjust scale as needed
       treeSprite.scale.set(treeScale, treeScale);
 
       // Add some random brightness variation
-      const brightness = 0.9 + (pos.var % 10) * 0.01;
+      let brightness = 1;
+      if (typeof pos.var == "number") brightness = 0.9 + (pos.var % 10) * 0.01;
       const tintValue = Math.floor(brightness * 255);
       treeSprite.tint = (tintValue << 16) | (tintValue << 8) | tintValue;
       data.container.addChild(treeSprite);
@@ -88,7 +127,7 @@ export function getTreePositions(
 
   // Create evenly distributed positions using a grid pattern with slight jitter
   // We'll use an 8x8 grid (64 cells) and take 50 of them
-  const gridSize = 8; // Number of rows/columns
+  const gridSize = 5; // Number of rows/columns
 
   // Calculate spacing between grid points
   const spacing = 2.0 / (gridSize + 1); // Spread across -1 to 1 range with padding
@@ -124,12 +163,12 @@ export function getTreePositions(
 
   // Shuffle and take first 50
   shuffle(gridPositions);
-  for (let i = 0; i < Math.min(50, gridPositions.length); i++) {
+  for (let i = 0; i < Math.min(25, gridPositions.length); i++) {
     positions.push(gridPositions[i]);
   }
 
   // If we don't have enough positions within the hex, fill remaining with fallback
-  while (positions.length < 50) {
+  while (positions.length < 25) {
     const angle = seededRandom() * Math.PI * 2;
     const distance = Math.sqrt(seededRandom()) * 1; // Keep within hex bounds
     positions.push({

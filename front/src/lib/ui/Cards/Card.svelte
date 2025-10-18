@@ -26,32 +26,41 @@
 </script>
 
 {#if modal == "" || $openModals[modal] !== undefined}
-  <div
-    bind:this={card}
-    class="card"
-    {draggable}
-    style:padding={padding + "rem"}
-    style:position="relative"
-    on:dblclick={() => {
-      card.style.position = "relative";
-    }}
-    on:dragstart={(e) => {
-      x = e.clientX - card.getBoundingClientRect().x;
-      y = e.clientY - card.getBoundingClientRect().y;
-      card.style.left = e.clientX - x + "px";
-      card.style.top = e.clientY - y + "px";
-      card.style.position = "absolute";
-      //@ts-ignore
-      e.dataTransfer?.setDragImage(card.cloneNode(true), 0, 0);
-    }}
-    on:drag={drag}
-    on:dragend={drag}
-  >
-    <slot />
+  <div bind:this={card} class="card" style:position="relative">
+    {#if draggable}
+      <div
+        class="dragHandle"
+        {draggable}
+        on:dblclick={() => {
+          card.style.position = "relative";
+        }}
+        on:dragstart={(e) => {
+          x = e.clientX - card.getBoundingClientRect().x;
+          y = e.clientY - card.getBoundingClientRect().y;
+          card.style.left = e.clientX - x + "px";
+          card.style.top = e.clientY - y + "px";
+          card.style.position = "absolute";
+          //@ts-ignore
+          e.dataTransfer?.setDragImage(card.cloneNode(true), 0, 0);
+        }}
+        on:drag={drag}
+        on:dragend={drag}>
+      </div>
+    {/if}
+    <div style:padding={padding + "rem"}>
+      <slot />
+    </div>
   </div>
 {/if}
 
 <style>
+  .dragHandle {
+    height: 3rem;
+    cursor: grab;
+    background: rgba(0, 0, 0, 0.1);
+    width: 90%;
+    position: absolute;
+  }
   .card {
     width: auto;
     pointer-events: all;

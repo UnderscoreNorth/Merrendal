@@ -18,7 +18,7 @@
   function startConstructionHandler(selectedBuilding: BuildingType) {
     if (checkDisabled(selectedBuilding) == "disabled") return;
     startConstruction($game, selectedBuilding, area);
-    area = area;
+    $game = $game;
   }
   $: getProgress = (project: ProjectType) => {
     if (project.type == "demolition") return project.progress;
@@ -88,10 +88,27 @@
           .reduce((a, b) => {
             return a + buildingTypes[b.building.buildingType].size;
           }, 0) +
-        buildingTypes[buildingType].size >
+        buildingTypes[buildingType].size +
+        (area.terrain.forested * area.acres) / 100 >
       area.acres
     )
       return "disabled";
+
+    // Check if max allowed buildings of this type has been reached
+    const buildingTemplate = buildingTypes[buildingType];
+    if (buildingTemplate.maxAllowed !== undefined) {
+      const existingCount = area.buildings.filter(
+        (b) => b.buildingType === buildingType,
+      ).length;
+      const inProgressCount = area.currentProjects.filter(
+        (p) =>
+          p.type === "construction" && p.building.buildingType === buildingType,
+      ).length;
+      if (existingCount + inProgressCount >= buildingTemplate.maxAllowed) {
+        return "disabled";
+      }
+    }
+
     return "";
   }
 </script>
@@ -109,7 +126,10 @@
     <h3>Area Information</h3>
     <table>
       <tr><th>Topography</th><td>{area.terrain.topography}</td></tr>
-      <tr><th>Forest Coverage</th><td>{area.terrain.forested}%</td></tr>
+      <tr
+        ><th>Forest Coverage</th><td
+          >{((area.terrain.forested * area.acres) / 100).toFixed(2)} Acres</td
+        ></tr>
       <tr
         ><th>Village Land </th><td
           >{area.buildingLand +
@@ -122,14 +142,17 @@
       <tr><th>Arable Land </th><td>{area.arableLand} Acres</td></tr>
       <tr
         ><th>Unused Land </th><td
-          >{area.acres -
+          >{(
+            area.acres -
             area.arableLand -
             area.buildingLand -
             area.currentProjects
               .filter((i) => i.type == "construction")
               .reduce((a, b) => {
                 return a + buildingTypes[b.building.buildingType].size;
-              }, 0)} Acres</td
+              }, 0) -
+            (area.terrain.forested * area.acres) / 100
+          ).toFixed(2)} Acres</td
         ></tr>
       {#if Object.values(area.yieldEff).length}
         <tr>

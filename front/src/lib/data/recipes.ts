@@ -3,6 +3,8 @@ import { rollRange } from "$lib/util/rolls";
 import type { Building } from "./buildings";
 import type { ItemRecord, ItemName } from "./items";
 import type { Stat, Villager } from "./living";
+import type { Area } from "./areas";
+import { getNeighboringCubes, fromCube } from "$lib/util/terrainHelpers";
 
 export type Recipe = {
   type: "recipe";
@@ -24,6 +26,53 @@ export const recipes = {
         ["STR", "CON"],
         "amount",
       );
+
+      // Find the area where this building is located
+      const area = gs.areas.find((a) => a.buildings.some((b) => b.id === building.id));
+
+      if (area) {
+        // Each point of forest coverage is worth 20000 lumber
+        const lumberPerForest = 20000;
+        let availableLumber = area.terrain.forested * lumberPerForest;
+
+        // Check if local area has enough forest
+        if (availableLumber >= amount) {
+          // Deplete from local area
+          const forestUsed = amount / lumberPerForest;
+          area.terrain.forested = Math.max(0, area.terrain.forested - forestUsed);
+        } else if (availableLumber > 0) {
+          // Use what's left in local area, then check neighbors
+          amount = availableLumber;
+          area.terrain.forested = 0;
+        } else {
+          // Local area has no forest, check neighboring areas
+          const neighboringCubes = getNeighboringCubes(area.loc);
+          let remainingAmount = amount;
+          const forestedNeighbors = gs.areas.filter((a) => {
+            const neighborId = fromCube(a.loc);
+            return neighboringCubes.some(n => fromCube(n) === neighborId) && a.terrain.forested > 0;
+          });
+
+          if (forestedNeighbors.length > 0) {
+            // Pick a random forested neighbor
+            const randomNeighbor = forestedNeighbors[Math.floor(Math.random() * forestedNeighbors.length)];
+            const neighborAvailableLumber = randomNeighbor.terrain.forested * lumberPerForest;
+
+            if (neighborAvailableLumber >= remainingAmount) {
+              const forestUsed = remainingAmount / lumberPerForest;
+              randomNeighbor.terrain.forested = Math.max(0, randomNeighbor.terrain.forested - forestUsed);
+            } else {
+              // Use all available from neighbor
+              amount = neighborAvailableLumber;
+              randomNeighbor.terrain.forested = 0;
+            }
+          } else {
+            // No forest available anywhere
+            amount = 0;
+          }
+        }
+      }
+
       return {
         input: {},
         amount,
@@ -96,6 +145,9 @@ export const recipes = {
         ["DEX", "WIS"],
         "amount",
       );
+      // Scale amount based on total forest coverage
+      const forestMultiplier = getForestMultiplier(building, gs);
+      amount *= forestMultiplier;
       return {
         input: {},
         amount,
@@ -118,6 +170,9 @@ export const recipes = {
         ["WIS"],
         "amount",
       );
+      // Scale amount based on total forest coverage
+      const forestMultiplier = getForestMultiplier(building, gs);
+      amount *= forestMultiplier;
       return {
         input: {},
         amount,
@@ -140,6 +195,9 @@ export const recipes = {
         ["WIS"],
         "amount",
       );
+      // Scale amount based on total forest coverage
+      const forestMultiplier = getForestMultiplier(building, gs);
+      amount *= forestMultiplier;
       return {
         input: {},
         amount,
@@ -713,6 +771,36 @@ export const recipes = {
     };
   }
 >;
+
+function getTotalForestCoverage(building: Building, gs: GameState): number {
+  // Find the area where this building is located
+  const area = gs.areas.find((a) => a.buildings.some((b) => b.id === building.id));
+
+  if (!area) return 0;
+
+  // Start with local area's forest coverage
+  let totalForest = area.terrain.forested;
+
+  // Add neighboring areas' forest coverage
+  const neighboringCubes = getNeighboringCubes(area.loc);
+  for (const neighborCube of neighboringCubes) {
+    const neighborId = fromCube(neighborCube);
+    const neighborArea = gs.areas.find((a) => a.areaID === neighborId);
+    if (neighborArea) {
+      totalForest += neighborArea.terrain.forested;
+    }
+  }
+
+  return totalForest;
+}
+
+function getForestMultiplier(building: Building, gs: GameState): number {
+  const totalForest = getTotalForestCoverage(building, gs);
+  const maxForest = 350;
+
+  // Scale from 0% to 100% based on forest coverage (0 to 350)
+  return Math.min(1, totalForest / maxForest);
+}
 
 function getQualityAndAmount(
   amount: number,

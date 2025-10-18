@@ -29,6 +29,7 @@ export type GameState = {
     trust: number;
     authority: number;
   };
+  render: boolean;
 };
 export const game = writable<GameState>({
   npcs: [],
@@ -52,6 +53,7 @@ export const game = writable<GameState>({
     trust: 0,
     authority: 0,
   },
+  render: false,
 });
 export const map = writable<TerrainTile[]>([]);
 export type View = {

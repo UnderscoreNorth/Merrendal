@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from "uuid";
 import { type Villager } from "$lib/data/living";
 import { skillUp } from "./workers";
 import { recordLoop } from "$lib/util/recordLoop";
+import { getNeighboringCubes, fromCube } from "$lib/util/terrainHelpers";
 
 export function getAllBuildings(gs: GameState) {
   return Object.values(gs.areas)
@@ -159,14 +160,12 @@ export function doConstruction(gs: GameState) {
 
           if (project.type === "construction") {
             // Add building to area
-            area.buildings.push(project.building);
-            area.buildingLand +=
-              buildingTypes[project.building.buildingType].size;
             project.building.built = {
               day: gs.currentDay,
               period: gs.currentPeriod,
               year: gs.currentYear,
             };
+            completeBuilding(gs, area, project.building);
             if (project.building.buildingType == "Burgage") {
               const npc = gs.npcs.filter((i) => i.home == "" && i.age >= 16)[0];
               if (npc) {
@@ -280,8 +279,7 @@ export function startConstruction(
   if ("occupationTitle" in template)
     building.occupationTitle = template.occupationTitle;
   if (spawn || Object.keys(template.requirements).length == 0) {
-    area.buildings.push(building);
-    area.buildingLand += buildingTypes[building.buildingType].size;
+    completeBuilding(gs, area, building);
   } else {
     area.currentProjects.push({
       type: "construction",
@@ -292,6 +290,30 @@ export function startConstruction(
       id: uuidv4(),
       priority: 5,
     });
+  }
+}
+
+export function completeBuilding(
+  gs: GameState,
+  area: Area,
+  building: Building,
+) {
+  area.buildings.push(building);
+  area.buildingLand += buildingTypes[building.buildingType].size;
+  if (gs.map) {
+    const neighboringCubes = getNeighboringCubes(area.loc);
+    for (const neighborCube of neighboringCubes) {
+      const neighborId = fromCube(neighborCube);
+      if (
+        gs.map.tiles[neighborId] &&
+        gs.map.tiles[neighborId].terrain.topography !== "Water"
+      ) {
+        const alreadyExists = gs.areas.some((a) => a.areaID === neighborId);
+        if (!alreadyExists) {
+          gs.areas.push(gs.map.tiles[neighborId]);
+        }
+      }
+    }
   }
 }
 

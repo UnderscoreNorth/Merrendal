@@ -42,6 +42,7 @@ export type BuildingTemplate = {
     y: number;
   };
   size: number;
+  maxAllowed?: number;
 };
 export type Upgrade = {
   groupKey?: string;
@@ -172,7 +173,7 @@ export const buildingTypes = {
       x: 2,
       y: 2,
     },
-    size: 10,
+    size: 4,
   },
   "Gold Mine": {
     requirements: { Lumber: 1000 },
@@ -217,7 +218,7 @@ export const buildingTypes = {
       x: 7,
       y: 1,
     },
-    size: 10,
+    size: 4,
   },
   "Silver Mine": {
     requirements: { Lumber: 1000 },
@@ -262,7 +263,7 @@ export const buildingTypes = {
       x: 6,
       y: 1,
     },
-    size: 10,
+    size: 4,
   },
   "Stone Quarry": {
     requirements: { Lumber: 1000 },
@@ -286,7 +287,7 @@ export const buildingTypes = {
       x: 4,
       y: 3,
     },
-    size: 10,
+    size: 4,
   },
   "Clay Pit": {
     requirements: { Lumber: 1000 },
@@ -310,7 +311,7 @@ export const buildingTypes = {
       x: 5,
       y: 3,
     },
-    size: 10,
+    size: 4,
   },
   "Lumber Yard": {
     requirements: {},
@@ -572,5 +573,15 @@ export const buildingTypes = {
     upgrades: {},
     allowedRecipes: ["Ale"],
     size: 0.1,
+  },
+  "Dirt Road": {
+    maxPops: 0,
+    requirements: {},
+    upgrades: {},
+    category: "Infrastructure",
+    allowedRecipes: [],
+    size: 0,
+    icon: { x: 5, y: 2 },
+    maxAllowed: 1,
   },
 } as const satisfies Record<string, BuildingTemplate>;

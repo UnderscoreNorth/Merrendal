@@ -1,7 +1,7 @@
 <script lang="ts">
   import "./styles.css";
   import { init } from "$lib/init";
-  import { mouseCood, openModals } from "$lib/stores";
+  import { game, mouseCood, openModals } from "$lib/stores";
   import Collapsible from "$lib/ui/Collapsible.svelte";
   import Areas from "$lib/ui/Cards/Areas.svelte";
   import Logs from "$lib/ui/Cards/Logs.svelte";
@@ -14,6 +14,7 @@
   import PopulationModal from "$lib/ui/Modals/PopulationModal.svelte";
   import SelectedCell from "$lib/ui/Modals/SelectedCell.svelte";
   import AreaDetail from "$lib/ui/Modals/AreaDetail.svelte";
+  import StartingArea from "$lib/ui/Modals/StartingArea.svelte";
   init();
 </script>
 
@@ -32,9 +33,14 @@
       <SelectedCell />
     </Card>
 
-    <Card draggable={false} padding={1} modal="areaDetail">
+    <Card draggable={true} padding={1} modal="areaDetail">
       <AreaDetail />
     </Card>
+    {#if $game.areas.length == 0}
+      <Card draggable={false} padding={1}>
+        <StartingArea />
+      </Card>
+    {/if}
   </Modal>
   <div class="overlay">
     <Card>
