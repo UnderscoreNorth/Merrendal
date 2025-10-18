@@ -9,7 +9,7 @@ export function init() {
   let num = 10;
   const npcs: Villager[] = [];
   let bread = 0;
-  const mapSize = 50;
+  const mapSize = 40;
   const mapData = new Map(mapSize, []);
   const areas: Area[] = [];
 

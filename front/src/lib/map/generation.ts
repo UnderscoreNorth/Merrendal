@@ -69,7 +69,7 @@ export class TerrainTile implements Area {
     }
   }
   changeElevation(x: number) {
-    if (this.terrain.elevation < 7) this.terrain.elevation += x * 1;
+    if (this.terrain.elevation < 20) this.terrain.elevation += x * 1;
   }
 }
 export class Map {
@@ -87,9 +87,6 @@ export class Map {
   lakes: Record<string, Array<string>>;
   ranges: Record<string, Array<string>>;
   ocean: Array<string>;
-  villages: Array<TerrainTile>;
-  farms: Array<TerrainTile>;
-  lumberYards: Array<TerrainTile>;
   constructor(diameter: number, islandNames: string[]) {
     this.tiles = {};
     this.diameter = diameter;
@@ -99,9 +96,6 @@ export class Map {
     this.lakes = {};
     this.ranges = {};
     this.ocean = [];
-    this.villages = [];
-    this.farms = [];
-    this.lumberYards = [];
     this.center = { q: 0, s: 0, r: 0 };
 
     //Init gen - optimized to reduce fromCube calls
@@ -131,24 +125,19 @@ export class Map {
       let cood = { q, s, r };
       let startingLimit = rollRange(5, 10) / 10;
       //Land Lift
-      for (let i = -3; i < 3; i++) {
+      for (let i = -2; i < 8; i++) {
         this.lifted = [];
-
-        this.raiseGround(
-          cood,
-          startingLimit - Math.pow(i * 0.05, 2),
-          0.5,
-          -1,
-          2,
-        );
+        this.raiseGround(cood, startingLimit, 0.95, -1, i);
       }
       //Mountains
+      let mountain = false;
       if (Math.random() > MountainChance) {
-        //MountainChance += 0.1;
+        mountain = true;
+        MountainChance += 0.2;
         let rangeLength = rollRange(6, Math.floor(this.diameter * 1.75));
         console.log({ rangeLength });
         if (rangeLength <= 5) {
-          let MountainHeight = rollRange(5, 7);
+          let MountainHeight = rollRange(16, 20);
           this.lifted = [];
           this.tiles[fromCube(cood)].terrain.elevation = MountainHeight;
           this.raiseNearby(cood, 5);
@@ -161,7 +150,7 @@ export class Map {
             cood = direction(cood, dir);
             let edgeDistance = this.getDistance(cood, this.center);
             if (edgeDistance > this.diameter) break;
-            let MountainHeight = rollRange(4, 5);
+            let MountainHeight = rollRange(16, 20);
             this.tiles[fromCube(cood)].terrain.elevation = MountainHeight - 1;
             this.raiseGround(cood, 1, rollRange(0, 4) / 10, -1, MountainHeight);
             dir = changeDirection(
@@ -181,15 +170,16 @@ export class Map {
         const qsr = tileKeys[i];
         const tile = this.tiles[qsr];
         const ring = this.getRing(tile.loc.q, tile.loc.s, tile.loc.r, 1);
+        if (tile.terrain.elevation >= 0) continue;
         let nearbyLand = 0;
-        const targetElevation = tile.terrain.elevation;
         for (let j = 0; j < ring.length; j++) {
-          if (ring[j].terrain.elevation - 1 === targetElevation) nearbyLand++;
+          if (ring[j].terrain.elevation >= 0) nearbyLand++;
         }
-        if (nearbyLand === 6 && Math.random() > 0.1) {
+        if (nearbyLand === 6) {
           tile.terrain.elevation++;
         }
       }
+
       this.land = [];
       this.Water = [];
       for (let i = 0; i < tileKeys.length; i++) {
@@ -197,7 +187,7 @@ export class Map {
         const tile = this.tiles[qsr];
         const elevation = tile.terrain.elevation;
         if (elevation >= 0) {
-          const topography = elevation <= 2 ? "Plains" : "Mountain";
+          const topography = elevation <= 15 ? "Plains" : "Mountain";
           this.tiles[qsr] = new TerrainTile(
             elevation,
             tile.loc.q,
@@ -223,7 +213,7 @@ export class Map {
     } while (
       numLand <
         (3 * Math.pow(this.diameter, 2) - 3 * this.diameter + 1) / minLand &&
-      attempt < 5
+      attempt < 50
     );
     //Cut off land except for one side
     let sides: Record<"ne" | "e" | "se" | "w" | "nw" | "sw", TerrainTile[]> = {
@@ -253,7 +243,7 @@ export class Map {
     );
     this.lifted = [];
     for (const tile of sortedSides[0][1]) {
-      const MountainHeight = rollRange(3, 5);
+      const MountainHeight = rollRange(14, 20);
       tile.terrain.elevation = MountainHeight;
       tile.terrain.topography = "Mountain";
       this.raiseNearby(tile.loc, MountainHeight);
@@ -262,12 +252,12 @@ export class Map {
       for (const tile of sortedSides[i][1]) {
         tile.terrain.elevation = -1;
         tile.terrain.topography = "Water";
-        if (Math.random() > 0.7) {
+        for (let j = 1; j < rollRange(3, 5); j++) {
           for (const oTile of this.getRing(
             tile.loc.q,
             tile.loc.s,
             tile.loc.r,
-            1,
+            j,
           )) {
             if (oTile !== undefined) {
               if (oTile.terrain.elevation >= 0) {
@@ -279,67 +269,118 @@ export class Map {
         }
       }
     }
-    //Valley creation
-    let tile = this.getRandomLandPoint("Mountain");
-    let start = toCube(fromCube(tile));
-    this.lifted = [];
-    let dir = rollRange(0, 5);
-    let initDir = dir;
-    let riverTiles: TerrainTile[] = [];
-    do {
-      this.tiles[fromCube(tile)].terrain.topography = "Plains";
-      this.tiles[fromCube(tile)].terrain.elevation = rollRange(1, 2);
-      this.tiles[fromCube(tile)].terrain.river = "init";
-      riverTiles.push(this.tiles[fromCube(tile)]);
-      this.lifted.push(fromCube(tile));
-      tile = direction(tile, dir);
-      dir = changeDirection(
-        dir,
-        roll([
-          [-1, 3],
-          [0, 5],
-          [1, 3],
-        ]),
-      );
-    } while (this.tiles[fromCube(tile)]?.terrain.topography == "Mountain");
-    dir = (initDir + 3) % 6;
-    tile = start;
-    do {
-      this.tiles[fromCube(tile)].terrain.topography = "Plains";
-      this.tiles[fromCube(tile)].terrain.elevation = rollRange(1, 2);
-      this.tiles[fromCube(tile)].terrain.river = "init";
-      riverTiles.unshift(this.tiles[fromCube(tile)]);
-      this.lifted.push(fromCube(tile));
-      tile = direction(tile, dir);
-      dir = changeDirection(
-        dir,
-        roll([
-          [-1, 3],
-          [0, 5],
-          [1, 3],
-        ]),
-      );
-    } while (
-      this.tiles[fromCube(tile)]?.terrain.topography !== "Water" &&
-      this.tiles[fromCube(tile)] !== undefined
-    );
 
-    //Determining rivers
+    //Smoothing of cliffs
+    for (const tile of Object.values(this.tiles)) {
+      let elevation = tile.terrain.elevation;
+      if (elevation < 3) continue;
+      if (Math.random() > 0.7) continue;
+      let lowerTiles: Array<{ dir: number; oTile: TerrainTile }> = [];
+      const oTiles = this.getRing(tile.loc.q, tile.loc.s, tile.loc.r, 1);
+      for (let i in oTiles) {
+        const oTile = oTiles[i];
+        if (elevation - oTile.terrain.elevation >= 4) {
+          lowerTiles.push({ dir: Number(i), oTile });
+        }
+      }
+      shuffle(lowerTiles);
+      for (let i = 0; i < lowerTiles.length; i++) {
+        const oTile = lowerTiles[i].oTile;
+        oTile.terrain.elevation = elevation - (i == 0 ? 2 : 4);
+      }
+    }
+    const tileKeys = Object.keys(this.tiles);
+    this.land = [];
+    this.Water = [];
+    let numPlains = 0;
+    let mountains: TerrainTile[] = [];
+    for (let i = 0; i < tileKeys.length; i++) {
+      const qsr = tileKeys[i];
+      const tile = this.tiles[qsr];
+      const elevation = tile.terrain.elevation;
+      if (elevation >= 0) {
+        const topography = elevation <= 10 ? "Plains" : "Mountain";
+        if (topography == "Plains") {
+          numPlains++;
+        } else if (elevation > 15) {
+          mountains.push(tile);
+        }
+        this.tiles[qsr].terrain.topography = topography;
+        this.land.push(tile.loc);
+        numLand++;
+      } else {
+        this.Water.push(tile.loc);
+      }
+    }
+    //River generation
+    shuffle(mountains);
+    let riverTiles: TerrainTile[] = [];
+    for (let i = 0; i < Math.min(10, mountains.length); i++) {
+      let tile = mountains[i];
+      let foundWater = false;
+      let attempts = 0;
+      this.lifted = [];
+      do {
+        riverTiles.push(tile);
+        this.lifted.push(fromCube(tile.loc));
+        tile.terrain.river = "init";
+        const oTiles = this.getRing(
+          tile.loc.q,
+          tile.loc.s,
+          tile.loc.r,
+          1,
+        ).filter(
+          (i) =>
+            !this.lifted.includes(fromCube(i.loc)) &&
+            this.getRing(i.loc.q, i.loc.s, i.loc.r, 1).filter((j) =>
+              this.lifted.includes(fromCube(j.loc)),
+            ).length == 1,
+        );
+        foundWater = oTiles.some(
+          (i) => i.terrain.topography == "Water" || i.terrain.river == "init",
+        );
+        if (oTiles.length == 0 || foundWater) break;
+        shuffle(oTiles);
+        if (
+          oTiles.filter((o) => o.terrain.elevation < tile.terrain.elevation)
+            .length == 0
+        ) {
+          let newTile = pick(oTiles);
+          newTile.terrain.elevation = tile.terrain.elevation;
+          newTile.terrain.topography =
+            newTile.terrain.elevation <= 10 ? "Plains" : "Mountain";
+          tile = newTile;
+        } else {
+          tile = oTiles.filter(
+            (o) => o.terrain.elevation < tile.terrain.elevation,
+          )[0];
+        }
+        if (tile.terrain.river == "init") foundWater = true;
+        attempts++;
+      } while (!foundWater);
+    }
+    console.log("River length:", riverTiles.length);
     for (const n in riverTiles) {
       const tile = riverTiles[n];
-      tile.terrain.elevation = Math.round((Number(n) * 2) / riverTiles.length);
+      //tile.terrain.elevation = Math.round((Number(n) * 2) / riverTiles.length);
       tile.terrain.river = "";
+      let hasWater = false;
       for (let i = 0; i < 6; i++) {
         let coords = direction(toCube(fromCube(tile.loc)), i);
         const oTile = this.tiles[fromCube(coords)];
         if (oTile == undefined) continue;
-        if (oTile.terrain.river !== "" || oTile.terrain.topography == "Water") {
+        if (
+          oTile.terrain.river !== "" ||
+          (oTile.terrain.topography == "Water" && !hasWater)
+        ) {
           tile.terrain.river += i.toString();
+          if (oTile.terrain.topography == "Water") hasWater = true;
         }
       }
     }
     //Determining Islands - optimized with Set for faster lookups
     console.log("Num of land tiles ", this.land.length);
+    console.log("Num of plains ", numPlains);
     const ungroupedSet = new Set<string>();
     for (let i = 0; i < this.land.length; i++) {
       ungroupedSet.add(fromCube(this.land[i]));
@@ -361,9 +402,15 @@ export class Map {
         const ringTiles = this.getRing(tile.loc.q, tile.loc.s, tile.loc.r, d);
         for (let i = 0; i < ringTiles.length; i++) {
           const neighbor = ringTiles[i];
-          if (neighbor.terrain.elevation < 0 || neighbor.groupID !== "") continue;
+          if (neighbor.terrain.elevation < 0 || neighbor.groupID !== "")
+            continue;
 
-          const innerRing = this.getRing(neighbor.loc.q, neighbor.loc.s, neighbor.loc.r, 1);
+          const innerRing = this.getRing(
+            neighbor.loc.q,
+            neighbor.loc.s,
+            neighbor.loc.r,
+            1,
+          );
           let neighborGroup = 0;
           for (let j = 0; j < innerRing.length; j++) {
             if (innerRing[j].groupID === qrs) neighborGroup++;
@@ -384,12 +431,22 @@ export class Map {
       do {
         found = false;
         for (let ringDist = 1; ringDist < d; ringDist++) {
-          const ringTiles = this.getRing(tile.loc.q, tile.loc.s, tile.loc.r, ringDist);
+          const ringTiles = this.getRing(
+            tile.loc.q,
+            tile.loc.s,
+            tile.loc.r,
+            ringDist,
+          );
           for (let i = 0; i < ringTiles.length; i++) {
             const neighbor = ringTiles[i];
             if (neighbor.terrain.elevation < 0 || neighbor.groupID) continue;
 
-            const innerRing = this.getRing(neighbor.loc.q, neighbor.loc.s, neighbor.loc.r, 1);
+            const innerRing = this.getRing(
+              neighbor.loc.q,
+              neighbor.loc.s,
+              neighbor.loc.r,
+              1,
+            );
             let neighborGroup = 0;
             for (let j = 0; j < innerRing.length; j++) {
               if (innerRing[j].groupID === qrs) neighborGroup++;
@@ -441,36 +498,6 @@ export class Map {
     console.log(
       "Number of islands: " + Object.values(this.islands).map((i) => i.length),
     );
-    //Determining Lakes
-    /*do {
-      let qrs = ungrouped[0];
-      const tile = this.tiles[qrs];
-      tile.groupID = qrs;
-      ungrouped.splice(ungrouped.indexOf(qrs), 1);
-      let d = 1;
-      let found = false;
-      do {
-        found = false;
-        for (const neighbor of this.getRing(tile.loc.q, tile.loc.s, tile.loc.r, d)) {
-          const neighborGroup = this.getRing(
-            neighbor.q,
-            neighbor.s,
-            neighbor.r,
-            1,
-          ).filter((i) => i.groupID == qrs).length;
-          if (
-            neighbor.terrain.elevation < 0 &&
-            neighbor.groupID == "" &&
-            neighborGroup
-          ) {
-            neighbor.groupID = qrs;
-            found = true;
-            ungrouped.splice(ungrouped.indexOf(fromCube(neighbor)), 1);
-          }
-        }
-        d++;
-      } while (found);
-    } while (ungrouped.length);*/
     const tileValues = Object.values(this.tiles);
     for (let i = 0; i < tileValues.length; i++) {
       const tile = tileValues[i];
@@ -479,7 +506,10 @@ export class Map {
       const ring = this.getRing(tile.loc.q, tile.loc.s, tile.loc.r, 1);
       for (let j = 0; j < ring.length; j++) {
         const neighbor = ring[j];
-        if (neighbor.terrain.topography === "Water" && neighbor.groupID !== "") {
+        if (
+          neighbor.terrain.topography === "Water" &&
+          neighbor.groupID !== ""
+        ) {
           neighborID = neighbor.groupID;
           break;
         }
@@ -531,11 +561,6 @@ export class Map {
       (a, b) => b.length - a.length,
     )[0];
     console.log("Ocean size:", Object.keys(this.ocean).length);
-    console.log("# Lakes:", Object.keys(this.lakes));
-    for (let i = 1; i < Object.values(this.lakes).length; i++) {
-      const lakeTile = Object.values(this.lakes)[i][0];
-      console.log(lakeTile);
-    }
     let found = false;
     let d = 0;
     do {
@@ -601,7 +626,6 @@ export class Map {
       }
     }
     //Forests
-    let minForests = rollRange(10, 15);
     attempt = 0;
     this.lifted = [];
     do {
@@ -609,62 +633,13 @@ export class Map {
       //console.log("Forest " + attempt);
       let cood = this.getRandomLandPoint("Plains");
       this.spreadTree(cood, 1, -1);
-    } while (attempt < minForests);
+    } while (this.lifted.length < numPlains / 2);
     //console.log("Forests generated");
 
     const tilesToEvaluate = Object.keys(this.tiles);
     for (let idx = 0; idx < tilesToEvaluate.length; idx++) {
       this.tiles[tilesToEvaluate[idx]].yield = Math.random();
     }
-
-    const values: Record<string, number> = {};
-    for (let idx = 0; idx < tilesToEvaluate.length; idx++) {
-      const j = tilesToEvaluate[idx];
-      const tile = this.tiles[j];
-      const topography = tile.terrain.topography;
-      if (topography === "Mountain" || topography === "Water") continue;
-
-      let farmland = 0;
-      let forests = 0;
-      let hills = 0;
-      let nearbyPlainss = 0;
-
-      // Cache sqrt values for better performance
-      const sqrtValues = [0, Math.sqrt(5), Math.sqrt(4), Math.sqrt(3), Math.sqrt(2), Math.sqrt(1)];
-
-      for (let n = 1; n <= 5; n++) {
-        const ringTiles = this.getRing(tile.loc.q, tile.loc.s, tile.loc.r, n);
-        const value = sqrtValues[6 - n];
-
-        for (let ringIdx = 0; ringIdx < ringTiles.length; ringIdx++) {
-          const otherTile = ringTiles[ringIdx];
-          const otherTopography = otherTile.terrain.topography;
-          const otherForested = otherTile.terrain.forested;
-          const otherYield = otherTile.yield;
-
-          if (n === 1 && otherForested < 30 && otherTopography === "Plains" && otherYield > 0.7) {
-            nearbyPlainss++;
-          }
-          if (otherTopography === "Plains" && otherForested < 30 && otherYield > 0.7) {
-            farmland += value;
-          }
-          if (otherForested > 70) {
-            forests += value;
-          }
-          if (Math.round(otherTile.terrain.elevation) > 2 && otherYield > 0.7) {
-            hills += value;
-          }
-        }
-      }
-
-      if (farmland && forests && hills && nearbyPlainss >= 2) {
-        values[j] = Math.pow(farmland, 1.25) + Math.pow(forests, 1.1) + hills;
-      }
-    }
-    let tileValuesSorted = Object.entries(values).sort((a, b) => b[1] - a[1]);
-    let bestTile = this.tiles[tileValuesSorted[0][0]];
-    bestTile.terrain.forested = 0;
-    this.villages.push(bestTile);
   }
   getEdgeDistance(x: number, y: number) {
     return (
@@ -680,9 +655,12 @@ export class Map {
     direction: number,
     limit: number,
   ) {
-    if (this.tiles[fromCube(cood)].terrain.elevation >= limit) return;
-    let edgeDistance = this.getDistance(cood, this.center);
-    this.tiles[fromCube(cood)].changeElevation(1);
+    const thisTile = this.tiles[fromCube(cood)];
+    if (thisTile.terrain.elevation >= limit) return;
+    thisTile.terrain.elevation = rollRange(
+      Math.max(thisTile.terrain.elevation, limit - 4),
+      limit,
+    );
     this.lifted.push(fromCube(cood));
     const tiles = this.getRing(cood.q, cood.s, cood.r, 1, true);
     for (let i in tiles) {
@@ -695,11 +673,14 @@ export class Map {
         tile.terrain.elevation < limit
       ) {
         spread *= Math.random() * decay + 0.7;
-        if (edgeDistance > this.diameter) {
-          spread *= (edgeDistance - this.diameter) / 3;
-        }
         if (spread > 1) spread = 1;
-        this.raiseGround(tile.loc, spread, decay, parseInt(i), limit);
+        this.raiseGround(
+          tile.loc,
+          spread,
+          decay,
+          parseInt(i),
+          thisTile.terrain.elevation,
+        );
       }
     }
   }
@@ -712,12 +693,10 @@ export class Map {
     for (const oTile of this.getRing(cood.q, cood.s, cood.r, 1)) {
       if (oTile.terrain.elevation < tile.terrain.elevation) {
         oTile.terrain.elevation = rollRange(
-          tile.terrain.elevation - 1,
+          oTile.terrain.elevation + 1,
           tile.terrain.elevation,
         );
-        if (oTile.terrain.elevation >= 0)
-          oTile.terrain.topography =
-            oTile.terrain.elevation >= 3 ? "Mountain" : "Plains";
+        if (oTile.terrain.elevation >= 0) oTile.terrain.topography = "Plains";
         this.raiseNearby(oTile.loc, limit);
       }
     }

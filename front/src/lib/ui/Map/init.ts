@@ -8,10 +8,11 @@ export async function loadTilesheet() {
     });
   }
   const tilesheet = {
-    Plains: await loadAsset("Hex - Plains (lush) 1"),
-    Water: await loadAsset("Hex - Water - Ocean (still water) 5"),
-    Mountain: await loadAsset("Hex - Mountains, foothills (lush)"),
-    "mountain peak": await loadAsset("Hex - Mountains, peak (rocky)"),
+    Plains: await loadAsset("Plain"),
+    Water: await loadAsset("Water"),
+    Mountain: await loadAsset("Mountain"),
+    "mountain peak": await loadAsset("Mountain Peak"),
+    Hill: await loadAsset("Hill"),
     farmland: await loadAsset("Hex - Urban - Farmland (lush) 1"),
     "wooded plain": await loadAsset("Hex - Sparse Trees (lush) 1"),
     "forested plain": await loadAsset("Hex - Forest, deciduous (lush)"),

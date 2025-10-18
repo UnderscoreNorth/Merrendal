@@ -28,10 +28,12 @@
   function getTileTexture(cell: TerrainTile): PIXI.Texture | null {
     if (!tilesheetLoaded) return null;
     let tileName: keyof typeof tilesheet = cell.terrain.topography;
-    if (Math.round(cell.terrain.elevation) > 4) {
+    if (cell.terrain.elevation > 18) {
       tileName = "mountain peak";
-    } else if (Math.round(cell.terrain.elevation) > 3) {
-      tileName = "mountain medium";
+    } else if (cell.terrain.elevation > 13) {
+      tileName = "Mountain";
+    } else if (cell.terrain.elevation >= 10) {
+      tileName = "Hill";
     }
     if (!tileName || !tilesheet[tileName]) {
       console.warn(`No texture found for terrain type: ${tileName}`);
@@ -92,26 +94,20 @@
         data.container.filters = [];
       });
       mapContainer.addChild(data.container);
-      sprite.anchor.set(0.5, 0.5);
+      sprite.anchor.set(0.5, 0.15);
       data.container.addChild(sprite);
       sprite.position.set(x, y);
       sprite.scale.set(xScale, yScale);
       let brightness = 1;
       if (cell.terrain.topography === "Water") {
-        // Elevation ranges from -3 to 0 for water
-        // Map to brightness: -3 (deepest) = 0.4, 0 (shallow) = 1.0
         brightness = 0.4 + ((cell.terrain.elevation + 3) / 3) * 0.6;
-        //brightness = Array.from(lakes).indexOf(cell.groupID) / lakes.size;
-        const tintValue = Math.floor(brightness * 255);
-        sprite.tint = (tintValue << 16) | (tintValue << 8) | tintValue;
-      } else if (!["farmland", "village"].includes(cell.terrain.topography)) {
-        //brightness = 0.9 + (((seed % 5) + 1) / 5) * 0.1;
-        brightness = 0.7 + cell.yield * 0.3;
-        const tintValue = Math.floor(brightness * 255);
-        sprite.tint = (tintValue << 16) | (tintValue << 8) | tintValue;
-      } else {
-        sprite.tint = 0xffffff; // Reset tint for non-water tiles
+      } else if (cell.terrain.topography === "Plains") {
+        brightness = 0.7 + cell.terrain.elevation * 0.03;
+      } else if (cell.terrain.topography === "Mountain") {
+        brightness = 0.8 + (cell.terrain.elevation - 10) * 0.02;
       }
+      const tintValue = Math.floor(brightness * 255);
+      sprite.tint = (tintValue << 16) | (tintValue << 8) | tintValue;
       if (cell.terrain.river) {
         const texture = riverTextures[cell.terrain.river];
         const river = new PIXI.Sprite(texture);

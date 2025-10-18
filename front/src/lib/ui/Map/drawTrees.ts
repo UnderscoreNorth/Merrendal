@@ -20,7 +20,7 @@ export function drawTrees(
   const key = fromCube(cell.loc);
   const availablePositions = treeSprites[key];
   const maxTrees = availablePositions.length;
-  const desiredTrees = Math.floor(cell.terrain.forested / 2);
+  const desiredTrees = Math.floor(cell.terrain.forested / 4);
   const treeCount = Math.min(desiredTrees, maxTrees);
   const numBuildings = area !== undefined ? area.buildings.length : 0;
   const treePositions = availablePositions
