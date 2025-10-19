@@ -53,7 +53,7 @@
 
   async function loadTilesheetOld() {
     try {
-      const baseTexture = await PIXI.Assets.load("/sprites/tiles.png");
+      const baseTexture = await PIXI.Assets.load("sprites/tiles.png");
       const tileWidth = 32;
       const tileHeight = 100;
       const sheetWidth = 576;
@@ -89,7 +89,7 @@
   async function loadTilesheet() {
     async function loadAsset(fn: string) {
       return new PIXI.Texture({
-        source: await PIXI.Assets.load(`/sprites/${fn}.png`),
+        source: await PIXI.Assets.load(`sprites/${fn}.png`),
       });
     }
     try {
@@ -592,8 +592,7 @@
   on:resize={() => {
     isMapBuilt = false;
     buildMap();
-  }}
-/>
+  }} />
 <div
   bind:this={container}
   bind:clientHeight={h}
@@ -605,8 +604,8 @@
   on:mouseleave={dragEnd}
   on:touchstart={dragStart}
   on:touchmove={dragMove}
-  on:touchend={dragEnd}
-></div>
+  on:touchend={dragEnd}>
+</div>
 
 <style>
   div :global(canvas) {
