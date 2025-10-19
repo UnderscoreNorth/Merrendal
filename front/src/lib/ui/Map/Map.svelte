@@ -10,7 +10,8 @@
   } from "$lib/util/terrainHelpers";
   import { drawTrees, getTreePositions, type TreeCoord } from "./drawTrees";
   import { loadTilesheet } from "./init";
-  import { BloomFilter, GlowFilter } from "pixi-filters";
+  import { BloomFilter, GlowFilter, SimplexNoiseFilter } from "pixi-filters";
+  import { rollRange } from "$lib/util/rolls";
 
   let h: number;
   let container: HTMLDivElement;
@@ -18,7 +19,12 @@
   let mapContainer: PIXI.Container;
   let mapSprites: Record<
     string,
-    { container: PIXI.Container; tile: PIXI.Sprite; trees: PIXI.Sprite[] }
+    {
+      container: PIXI.Container;
+      tile: PIXI.Sprite;
+      trees: PIXI.Sprite[];
+      riverRoad?: PIXI.Graphics;
+    }
   > = {};
   let treeSprites: Record<string, TreeCoord[]> = {};
   let isMapBuilt = false;
@@ -27,7 +33,6 @@
   let fullTrees: PIXI.Texture[] = [];
   let riverTextures: Record<string, PIXI.Texture> = {};
   let tilesheetLoaded = false;
-  let season = "";
   let lakes: Set<string> = new Set();
   function getTileTexture(cell: TerrainTile): PIXI.Texture | null {
     if (!tilesheetLoaded) return null;
@@ -90,15 +95,22 @@
       };
       data = mapSprites[fromCube(cell.loc)];
       data.container.eventMode = "static";
-      data.container.hitArea = new PIXI.Circle(0, 2 * u, 3 * u);
-      new PIXI.Polygon([]);
+      const points = [];
+      for (let i = 0; i < 6; i++) {
+        points.push(Math.cos((i * 2 * Math.PI) / 6) * u);
+        points.push(Math.sin((i * 2 * Math.PI) / 6) * u * 0.75);
+      }
+      data.container.hitArea = new PIXI.Polygon(points);
+      //let graphic = new PIXI.Graphics().poly(points).fill(0xff0000);
+      //graphic.zIndex = 3;
+      //data.container.addChild(graphic);
       data.container.on("pointerdown", () => {
         openArea(cell.loc.q, cell.loc.r, cell.loc.s);
       });
       data.container.on("mouseover", () => {
         data.container.filters = [new BloomFilter({ strength: 3 })];
       });
-      data.container.on("mouseleave", () => {
+      data.container.on("mouseout", () => {
         data.container.filters = [];
       });
       mapContainer.addChild(data.container);
@@ -117,19 +129,202 @@
       }
       const tintValue = Math.floor(brightness * 255);
       sprite.tint = (tintValue << 16) | (tintValue << 8) | tintValue;
-      if (cell.terrain.river) {
-        const texture = riverTextures[cell.terrain.river];
-        const river = new PIXI.Sprite(texture);
-        if (!texture) console.log(cell.terrain.river);
-        river.anchor.set(0.5, 0.5);
-        data.container.addChild(river);
-        river.position.set(0, 0);
-        river.scale.set(Math.abs(xScale), yScale);
-      }
     } else {
       data.container.position.set(x, y);
     }
     data = mapSprites[fromCube(cell.loc)];
+    if (cell.terrain.river || cell.terrain.road) {
+      if (data.riverRoad !== undefined) {
+        data.container.removeChild(data.riverRoad);
+        data.riverRoad.destroy();
+        data.riverRoad = undefined;
+      }
+      let river = new PIXI.Graphics();
+      river.moveTo(0, 0);
+      const angleOffset = $view.rotation / 60;
+
+      // Check if there's a bridge in this area
+      const area = $game.areas.find((i) => fromCube(i.loc) == fromCube(cell.loc));
+      const hasBridge = area?.buildings.some(b =>
+        b.buildingType === "Wooden Bridge" || b.buildingType === "Stone Bridge"
+      ) ?? false;
+
+      // Find parallel directions between river and road
+      const riverDirs = cell.terrain.river.split("").map((i) => Number(i));
+      const roadDirs = cell.terrain.road.split("").map((i) => Number(i));
+      const parallelDirs = new Set(
+        riverDirs.filter((dir) => roadDirs.includes(dir)),
+      );
+
+      for (let i of riverDirs) {
+        const angle = ((i - 1.5 + angleOffset) * Math.PI) / 3;
+        const endX = Math.cos(angle) * u * 7.5;
+        const endY = Math.sin(angle) * u * 7.5;
+
+        // Create squiggly line with small zigzag segments
+        const segments = rollRange(1, 6);
+        const perpAngle = angle + Math.PI / 2;
+
+        // River stays centered
+        for (let seg = 0; seg <= segments; seg++) {
+          const t = seg / segments;
+          const baseX = endX * t;
+          const baseY = endY * t;
+
+          // Alternate offset direction and add some variation
+          const zigzag = (seg % 2 === 0 ? 1 : -1) * u * 0.5;
+          const offsetX = baseX + Math.cos(perpAngle) * zigzag;
+          const offsetY = baseY + Math.sin(perpAngle) * zigzag;
+
+          river.lineTo(offsetX, offsetY);
+        }
+
+        river.stroke({
+          width: 20,
+          color: 0x146ab5,
+          cap: "round",
+          join: "round",
+        });
+        river.moveTo(0, 0);
+      }
+      river.moveTo(0, 0);
+      for (let i of roadDirs) {
+        const angle = ((i - 1.5 + angleOffset) * Math.PI) / 3;
+        const endX = Math.cos(angle) * u * 7.5;
+        const endY = Math.sin(angle) * u * 7.5;
+
+        // Create squiggly line with small zigzag segments
+        const segments = rollRange(1, 6);
+        const perpAngle = angle + Math.PI / 2;
+
+        // If parallel with river, draw road on both sides
+        if (parallelDirs.has(i)) {
+          // Draw road on left side
+          for (let seg = 0; seg <= segments; seg++) {
+            const t = seg / segments;
+            const baseX = endX * t + Math.cos(perpAngle) * u * 1.2;
+            const baseY = endY * t + Math.sin(perpAngle) * u * 1.2;
+
+            const zigzag = (seg % 2 === 0 ? 1 : -1) * u * 0.5;
+            const offsetX = baseX + Math.cos(perpAngle) * zigzag;
+            const offsetY = baseY + Math.sin(perpAngle) * zigzag;
+
+            river.lineTo(offsetX, offsetY);
+          }
+
+          river.stroke({
+            width: 15,
+            color: 0x967d56,
+            cap: "round",
+            join: "round",
+          });
+          river.moveTo(0, 0);
+
+          // Draw road on right side
+          for (let seg = 0; seg <= segments; seg++) {
+            const t = seg / segments;
+            const baseX = endX * t - Math.cos(perpAngle) * u * 1.2;
+            const baseY = endY * t - Math.sin(perpAngle) * u * 1.2;
+
+            const zigzag = (seg % 2 === 0 ? 1 : -1) * u * 0.5;
+            const offsetX = baseX + Math.cos(perpAngle) * zigzag;
+            const offsetY = baseY + Math.sin(perpAngle) * zigzag;
+
+            river.lineTo(offsetX, offsetY);
+          }
+
+          river.stroke({
+            width: 15,
+            color: 0x967d56,
+            cap: "round",
+            join: "round",
+          });
+          river.moveTo(0, 0);
+        } else {
+          // Road not parallel, check if it crosses a river
+          const crossesRiver = riverDirs.length > 0;
+
+          if (crossesRiver && !hasBridge) {
+            // Draw road from start, stopping before center (30% of the way)
+            for (let seg = 0; seg <= segments; seg++) {
+              const t = seg / segments;
+
+              // Stop at 30% of the distance
+              if (t > 0.3) {
+                break;
+              }
+
+              const baseX = endX * t;
+              const baseY = endY * t;
+
+              const zigzag = (seg % 2 === 0 ? 1 : -1) * u * 0.5;
+              const offsetX = baseX + Math.cos(perpAngle) * zigzag;
+              const offsetY = baseY + Math.sin(perpAngle) * zigzag;
+
+              river.lineTo(offsetX, offsetY);
+            }
+
+            river.stroke({
+              width: 20,
+              color: 0x967d56,
+              cap: "round",
+              join: "round",
+            });
+            river.moveTo(0, 0);
+
+            // Draw road from end, stopping before center (from 70% to 100%)
+            for (let seg = 0; seg <= segments; seg++) {
+              const t = 0.7 + (seg / segments) * 0.3;
+
+              const baseX = endX * t;
+              const baseY = endY * t;
+
+              const zigzag = (seg % 2 === 0 ? 1 : -1) * u * 0.5;
+              const offsetX = baseX + Math.cos(perpAngle) * zigzag;
+              const offsetY = baseY + Math.sin(perpAngle) * zigzag;
+
+              river.lineTo(offsetX, offsetY);
+            }
+
+            river.stroke({
+              width: 20,
+              color: 0x967d56,
+              cap: "round",
+              join: "round",
+            });
+            river.moveTo(0, 0);
+          } else {
+            // Road not crossing river or has bridge, draw normally
+            for (let seg = 0; seg <= segments; seg++) {
+              const t = seg / segments;
+
+              const baseX = endX * t;
+              const baseY = endY * t;
+
+              const zigzag = (seg % 2 === 0 ? 1 : -1) * u * 0.5;
+              const offsetX = baseX + Math.cos(perpAngle) * zigzag;
+              const offsetY = baseY + Math.sin(perpAngle) * zigzag;
+
+              river.lineTo(offsetX, offsetY);
+            }
+
+            river.stroke({
+              width: 20,
+              color: 0x967d56,
+              cap: "round",
+              join: "round",
+            });
+            river.moveTo(0, 0);
+          }
+        }
+      }
+      //river = new PIXI.Graphics().poly(points).fill(0xff0000);
+      //if (!texture) console.log(cell.terrain.river);
+      data.container.addChild(river);
+      river.position.set(0, 0);
+      river.scale.set(Math.abs(xScale), yScale);
+      data.riverRoad = river;
+    }
     data.container.zIndex = layer;
     // Draw trees on top of the base tile
     const area = $game.areas.find((i) => fromCube(i.loc) == fromCube(cell.loc));
@@ -193,8 +388,11 @@
   }
 
   function rotateMap() {
+    for (const tile of $map) {
+      const sprites = mapSprites[fromCube(tile.loc)];
+    }
     view.update((v) => {
-      v.rotation = (v.rotation + 270) % 360;
+      v.rotation = (v.rotation + 60) % 360;
       return v;
     });
     // Rebuild the map with rotated coordinates

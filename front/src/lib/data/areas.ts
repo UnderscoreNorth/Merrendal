@@ -16,6 +16,7 @@ export type Area = {
     forested: number;
     topography: "Plains" | "Hill" | "Water" | "Mountain" | "Desert";
     river: string;
+    road: string;
   };
   yields: ItemRecord;
 };

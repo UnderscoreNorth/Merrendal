@@ -122,5 +122,5 @@ export function consumeFood(gs: GameState) {
   }
 
   // Process hunger-based deaths (including lord)
-  processHungerDeaths(gs);
+  //processHungerDeaths(gs);
 }

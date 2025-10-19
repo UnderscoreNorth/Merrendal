@@ -34,7 +34,6 @@ export function doConstruction(gs: GameState) {
       i.leadCarpenter = "";
       i.leadStoneMason = "";
     });
-
   for (const worker of workers.sort((a, b) => {
     return (
       (b.skills["Carpenter"] ?? 0) +
@@ -58,7 +57,10 @@ export function doConstruction(gs: GameState) {
 
       if (project.type === "construction" || project.type === "upgrade") {
         // Special handling for Convert to Arable Land upgrade
-        if (project.type === "upgrade" && project.upgrade === "Convert to Arable Land") {
+        if (
+          project.type === "upgrade" &&
+          project.upgrade === "Convert to Arable Land"
+        ) {
           // This upgrade uses worker time instead of materials
           //@ts-ignore - Using custom progress tracking for work days
           const currentProgress = project.progress["Work Days"] ?? 0;
@@ -83,7 +85,10 @@ export function doConstruction(gs: GameState) {
         }
 
         // Special handling for Dirt Road construction
-        if (project.type === "construction" && project.building.buildingType === "Dirt Road") {
+        if (
+          project.type === "construction" &&
+          project.building.buildingType === "Dirt Road"
+        ) {
           // Dirt Road uses worker time instead of materials
           //@ts-ignore - Using custom progress tracking for work days
           const currentProgress = project.progress["Work Days"] ?? 0;
@@ -173,7 +178,6 @@ export function doConstruction(gs: GameState) {
               gs.inventory[itemName as keyof typeof gs.inventory] =
                 (gs.inventory[itemName as keyof typeof gs.inventory] ?? 0) -
                 amountToAdd;
-
               // Skill up chance
               if (
                 itemName === "Lumber" &&
@@ -244,7 +248,10 @@ export function doConstruction(gs: GameState) {
             ] as Upgrade | undefined;
 
             // Handle special upgrade: Convert to Arable Land
-            if (project.upgrade === "Convert to Arable Land" && project.building.buildingType === "Farm Field") {
+            if (
+              project.upgrade === "Convert to Arable Land" &&
+              project.building.buildingType === "Farm Field"
+            ) {
               // Add 1 acre of arable land to the area
               area.arableLand += 1;
               // Don't mark as built for repeatable upgrades
@@ -372,17 +379,32 @@ export function completeBuilding(
   area.buildingLand += buildingTypes[building.buildingType].size;
   if (gs.map) {
     const neighboringCubes = getNeighboringCubes(area.loc);
-    for (const neighborCube of neighboringCubes) {
-      const neighborId = fromCube(neighborCube);
-      if (
-        gs.map.tiles[neighborId] &&
-        gs.map.tiles[neighborId].terrain.topography !== "Water"
-      ) {
+    let road = area.buildings.some((i) => i.buildingType == "Dirt Road")
+      ? "init"
+      : "";
+    let roadArray: number[] = [];
+    for (const i in neighboringCubes) {
+      const neighborId = fromCube(neighboringCubes[i]);
+      const oTile = gs.map.tiles[neighborId];
+      if (oTile && oTile.terrain.topography !== "Water") {
+        if (
+          oTile.buildings.some((i) => i.buildingType == "Dirt Road") &&
+          road == "init"
+        ) {
+          roadArray.push(Number(i));
+          let oTileRoads = oTile.terrain.road.split("").map((i) => Number(i));
+          oTileRoads.push(Number(i) + (3 % 6));
+          console.log(oTileRoads);
+          oTile.terrain.road = oTileRoads.sort().join("");
+        }
         const alreadyExists = gs.areas.some((a) => a.areaID === neighborId);
         if (!alreadyExists) {
-          gs.areas.push(gs.map.tiles[neighborId]);
+          gs.areas.push(oTile);
         }
       }
+    }
+    if (road == "init" && roadArray.length) {
+      area.terrain.road = roadArray.sort().join("");
     }
   }
 }
@@ -396,7 +418,8 @@ export function maintenance(gs: GameState) {
     if (building.nextMaintenance === undefined) {
       const randomDay = Math.floor(Math.random() * 360) + 1;
       // Schedule for next year if random day is today or earlier, otherwise this year
-      const year = randomDay <= gs.currentDay ? gs.currentYear + 1 : gs.currentYear;
+      const year =
+        randomDay <= gs.currentDay ? gs.currentYear + 1 : gs.currentYear;
       building.nextMaintenance = { year, day: randomDay };
     }
 
@@ -407,10 +430,13 @@ export function maintenance(gs: GameState) {
     ) {
       // Calculate maintenance cost (2% of building requirements)
       const buildingTemplate = buildingTypes[building.buildingType];
-      for (const [itemName, amount] of recordLoop(buildingTemplate.requirements)) {
+      for (const [itemName, amount] of recordLoop(
+        buildingTemplate.requirements,
+      )) {
         const maintenanceCost = amount * 0.02;
         //@ts-ignore
-        building.maintenanceCost[itemName] = (building.maintenanceCost[itemName] ?? 0) + maintenanceCost;
+        building.maintenanceCost[itemName] =
+          (building.maintenanceCost[itemName] ?? 0) + maintenanceCost;
       }
 
       // Schedule next maintenance (random day next year)
@@ -426,7 +452,8 @@ export function maintenance(gs: GameState) {
       if (upgrade.nextMaintenance === undefined) {
         const randomDay = Math.floor(Math.random() * 360) + 1;
         // Schedule for next year if random day is today or earlier, otherwise this year
-        const year = randomDay <= gs.currentDay ? gs.currentYear + 1 : gs.currentYear;
+        const year =
+          randomDay <= gs.currentDay ? gs.currentYear + 1 : gs.currentYear;
         upgrade.nextMaintenance = { year, day: randomDay };
       }
 
@@ -437,12 +464,17 @@ export function maintenance(gs: GameState) {
       ) {
         const buildingTemplate = buildingTypes[building.buildingType];
         //@ts-ignore - Dynamic upgrade lookup
-        const upgradeData = buildingTemplate.upgrades[upgradeName] as Upgrade | undefined;
+        const upgradeData = buildingTemplate.upgrades[upgradeName] as
+          | Upgrade
+          | undefined;
 
         if (upgradeData && upgradeData.maintenance) {
-          for (const [itemName, amount] of Object.entries(upgradeData.maintenance.cost)) {
+          for (const [itemName, amount] of Object.entries(
+            upgradeData.maintenance.cost,
+          )) {
             //@ts-ignore
-            upgrade.maintenanceCost[itemName] = (upgrade.maintenanceCost[itemName] ?? 0) + amount;
+            upgrade.maintenanceCost[itemName] =
+              (upgrade.maintenanceCost[itemName] ?? 0) + amount;
           }
         }
 

@@ -32,6 +32,7 @@ export class TerrainTile implements Area {
     forested: number;
     topography: "Plains" | "Hill" | "Water" | "Mountain" | "Desert";
     river: string;
+    road: string;
   };
   yields: ItemRecord;
   public groupID: string;
@@ -53,6 +54,7 @@ export class TerrainTile implements Area {
       topography: type,
       forested: 0,
       river: "",
+      road: "",
     };
     ((this.yields = {}), (this.currentProjects = []));
     this.arableLand = 0;

@@ -228,6 +228,7 @@
       (area.terrain.forested * area.acres) / 100;
     return area.acres - usedLand;
   };
+  let selected: Building | undefined | "new" = undefined;
   function checkDisabled(buildingType: BuildingType) {
     const riverBuildings: BuildingType[] = [
       "Stone Bridge",
@@ -355,20 +356,57 @@
       {/if}
     </table>
   </section>
-  <section></section>
+  <section>
+    <button
+      on:click={() => {
+        selected = "new";
+      }}>New building</button>
+    <table>
+      <tr>
+        <th>Project</th><th>Progress</th><th>Priority</th>
+      </tr>
+      {#each Object.values(area.currentProjects) as project}
+        <tr>
+          <td>
+            {#if project.type === "landConversion"}
+              Land Conversion
+            {:else}
+              {project.building.buildingType} {project.type}
+            {/if}
+          </td>
+          <td>{@html getProgress(project)}</td>
+          <td
+            ><input
+              class="priorityInput"
+              bind:value={project.priority}
+              type="number"
+              step="1"
+              min="1"
+              max="10" /></td>
+          <td
+            ><button on:click={() => cancelProject(project)}>Cancel</button
+            ></td>
+        </tr>
+      {/each}
+    </table>
+  </section>
 
   <section class="buildings">
-    <table>
-      <tr
-        ><th>Building</th><th>Status</th><th>Workers</th><th>Recipe</th><th
-          >Upgrades</th
-        ></tr>
+    <table style:border-collapse="collapse">
+      <tr><th>Building</th><th>Status</th><th>Workers</th><th>Recipe</th></tr>
       {#each area.buildings as building}
-        <tr>
+        <tr
+          class={"buildingRow" +
+            (typeof selected == "object" && selected.id == building.id
+              ? " selected"
+              : "")}
+          on:click={() => {
+            selected = building;
+          }}>
           <td style={`display: flex;align-items: center;gap: 0.5rem;`}>
             <div
               class={"building"}
-              style:background-position={`${buildingTypes[building.buildingType].icon.x * -64}px ${buildingTypes[building.buildingType].icon.y * -64}px`}>
+              style:background-position={`${buildingTypes[building.buildingType].icon.x * -32}px ${buildingTypes[building.buildingType].icon.y * -32}px`}>
             </div>
             {building.buildingType}
           </td>
@@ -412,15 +450,6 @@
               <div>-</div>
             {/if}
           </td>
-          <td class="upgrades-cell">
-            {#each getAvailableUpgrades(building) as [upgradeName, upgradeData]}
-              <button
-                class="upgrade-btn"
-                on:click={() => startUpgradeHandler(building, upgradeName)}>
-                {upgradeName}
-              </button>
-            {/each}
-          </td>
           {#if building.maxPops}
             <td>
               {building.workers.size}/{building.maxPops}
@@ -435,59 +464,46 @@
         </tr>
       {/each}
     </table>
-    <hr />
-    <table>
-      <tr>
-        <th>Project</th><th>Progress</th><th>Priority</th>
-      </tr>
-      {#each Object.values(area.currentProjects) as project}
-        <tr>
-          <td>
-            {#if project.type === "landConversion"}
-              Land Conversion
-            {:else}
-              {project.building.buildingType} {project.type}
-            {/if}
-          </td>
-          <td>{@html getProgress(project)}</td>
-          <td
-            ><input
-              class="priorityInput"
-              bind:value={project.priority}
-              type="number"
-              step="1"
-              min="1"
-              max="10" /></td>
-          <td
-            ><button on:click={() => cancelProject(project)}>Cancel</button
-            ></td>
-        </tr>
-      {/each}
-    </table>
   </section>
   <section>
-    {#each Array.from(new Set(Object.values(buildingTypes).map((i) => i.category))) as category}
-      {category}
-      <div class="constructionContainer">
-        {#key area}
-          {#each recordLoop(buildingTypes).filter((i) => i[1].category == category) as [buildingType, buildingData]}
-            <!-- svelte-ignore a11y-click-events-have-key-events -->
-            <div
-              class={checkDisabled(buildingType) + " building"}
-              on:click={() => startConstructionHandler(buildingType)}
-              style:background-position={`${buildingData.icon.x * -32}px ${buildingData.icon.y * -32}px`}>
-              {buildingType}
-            </div>
-          {/each}
-        {/key}
-      </div>
-    {/each}
+    {#if selected == "new"}
+      {#each Array.from(new Set(Object.values(buildingTypes).map((i) => i.category))) as category}
+        {category}
+        <div class="constructionContainer">
+          {#key area}
+            {#each recordLoop(buildingTypes).filter((i) => i[1].category == category) as [buildingType, buildingData]}
+              <!-- svelte-ignore a11y-click-events-have-key-events -->
+              <div
+                class={checkDisabled(buildingType) + " building"}
+                on:click={() => startConstructionHandler(buildingType)}
+                style:background-position={`${buildingData.icon.x * -32}px ${buildingData.icon.y * -32}px`}>
+                {buildingType}
+              </div>
+            {/each}
+          {/key}
+        </div>
+      {/each}
+    {:else if selected !== undefined}
+      {#each getAvailableUpgrades(selected) as [upgradeName, upgradeData]}
+        <button
+          class="upgrade-btn"
+          on:click={() => startUpgradeHandler(selected, upgradeName)}>
+          {upgradeName}
+        </button>
+      {/each}
+    {/if}
   </section>
 </div>
 
 <style>
-  hr {
-    margin: 0.5rem 0;
+  .buildingRow {
+    cursor: pointer;
+  }
+  .buildingRow:hover {
+    background: rgba(0, 0, 0, 0.1);
+  }
+  .selected {
+    background: rgba(255, 255, 255, 0.1);
   }
   .priorityInput {
     font-family: inherit;
@@ -522,6 +538,10 @@
   }
   .buildings td {
     padding: 0.5rem 0;
+  }
+  .buildings {
+    max-height: 50vh;
+    overflow-y: auto;
   }
   h3 {
     margin: 0.5em 0;

@@ -11,10 +11,14 @@ export function doAssignedJobs(gs: GameState) {
     const isBurgage = building.buildingType === "Burgage";
     const workers = isBurgage
       ? gs.npcs.filter(
-          (i) => i.home === building.id && i.age >= 16 && !gs.dailyWorkerActivity.has(i.id),
+          (i) =>
+            i.home === building.id &&
+            i.age >= 16 &&
+            !gs.dailyWorkerActivity.has(i.id),
         )
       : gs.npcs.filter(
-          (i) => building.workers.has(i.id) && !gs.dailyWorkerActivity.has(i.id),
+          (i) =>
+            building.workers.has(i.id) && !gs.dailyWorkerActivity.has(i.id),
         );
 
     let recipes = Array.from(
@@ -25,9 +29,7 @@ export function doAssignedJobs(gs: GameState) {
     for (const recipe of recipes) {
       if (recipe == undefined) continue;
       if (!building.allowedRecipes.includes(recipe)) continue;
-      const recipeWorkers = workers.filter(
-        (i) => i.job?.recipe == recipe || recipes.length == 1,
-      );
+      const recipeWorkers = workers.filter((i) => i.job?.recipe == recipe);
       const recipeTemplate = baseRecipes[recipe];
       for (let worker of recipeWorkers) {
         let index = building.currentProjects.findIndex(
@@ -45,7 +47,7 @@ export function doAssignedJobs(gs: GameState) {
             });
             if (
               recordLoop(newRecipe.input).every(([itemName, amount]) => {
-                return gs.inventory[itemName] ?? 0 >= amount;
+                return (gs.inventory[itemName] ?? 0) >= amount;
               })
             ) {
               recordLoop(newRecipe.input).forEach(([itemName, amount]) => {

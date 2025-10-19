@@ -1,5 +1,6 @@
 import { type Area } from "$lib/data/areas";
 import { type TerrainTile } from "$lib/map/generation";
+import { rollRange } from "$lib/util/rolls";
 import { fromCube, shuffle } from "$lib/util/terrainHelpers";
 import * as PIXI from "pixi.js";
 export type TreeCoord = {
@@ -43,8 +44,10 @@ export function drawTrees(
         availablePositions[i].curr = "";
         currentTrees--;
         const sprite = data.trees[i];
-        data.container.removeChild(sprite);
-        sprite.destroy();
+        if (sprite !== undefined) {
+          data.container.removeChild(sprite);
+          sprite.destroy();
+        }
         if (currentTrees == treeCount) break;
       }
     }
@@ -73,8 +76,7 @@ export function drawTrees(
       }
     }
   }
-  const treePositions = availablePositions.sort((a, b) => a.y - b.y);
-  treePositions.forEach((pos, index) => {
+  availablePositions.forEach((pos, index) => {
     if (pos.curr == "") return;
     const data = mapSprites[fromCube(cell.loc)];
     if (!data.trees[index]) {
@@ -89,7 +91,7 @@ export function drawTrees(
       const hexRadius = u; // Approximate hex radius for positioning
       treeSprite.position.set(
         pos.x * hexRadius,
-        pos.y * hexRadius * 0.7, // Slightly compress Y to fit hex better
+        pos.y * hexRadius * 0.65, // Slightly compress Y to fit hex better
       );
 
       // Scale trees appropriately
@@ -103,6 +105,7 @@ export function drawTrees(
       treeSprite.tint = (tintValue << 16) | (tintValue << 8) | tintValue;
       data.container.addChild(treeSprite);
       data.trees[index] = treeSprite;
+      treeSprite.zIndex = pos.y + 10;
     }
   });
 
@@ -112,8 +115,6 @@ export function getTreePositions(
   fullTrees: PIXI.Texture[],
   cell: TerrainTile,
 ): TreeCoord[] {
-  const positions: TreeCoord[] = [];
-
   // Use tile coordinates as seed for deterministic randomness
   let seed = (cell.loc.q * 73856093) ^ (cell.loc.r * 19349663);
 
@@ -122,60 +123,44 @@ export function getTreePositions(
     seed = (seed * 1664525 + 1013904223) % 4294967296;
     return seed / 4294967296;
   }
+  const points: TreeCoord[] = [];
 
-  // Create evenly distributed positions using a grid pattern with slight jitter
-  // We'll use an 8x8 grid (64 cells) and take 50 of them
-  const gridSize = 5; // Number of rows/columns
+  // Calculate vertical spacing
+  const verticalSpacing = Math.sqrt(3) / 6;
+  const horizontalSpacing = 1 / 3;
 
-  // Calculate spacing between grid points
-  const spacing = 2.0 / (gridSize + 1); // Spread across -1 to 1 range with padding
+  // Row configurations: [number of points, y-offset multiplier]
+  const rows = [
+    { count: 3, yMultiplier: 3 },
+    { count: 4, yMultiplier: 2 },
+    { count: 5, yMultiplier: 1 },
+    { count: 6, yMultiplier: 0 },
+    { count: 5, yMultiplier: -1 },
+    { count: 4, yMultiplier: -2 },
+    { count: 3, yMultiplier: -3 },
+  ];
 
-  // Generate grid positions
-  const gridPositions: TreeCoord[] = [];
-  for (let row = 0; row < gridSize; row++) {
-    for (let col = 0; col < gridSize; col++) {
-      // Base position on grid
-      const baseX = -1 + spacing + col * spacing;
-      const baseY = -1 + spacing + row * spacing;
+  for (const row of rows) {
+    const y = row.yMultiplier * verticalSpacing;
+    const xOffset = -((row.count - 1) * horizontalSpacing) / 2;
 
-      // Add small random jitter for natural look (max 30% of spacing)
-      const jitterAmount = spacing * 0.3;
-      const jitterX = (seededRandom() - 0.5) * jitterAmount;
-      const jitterY = (seededRandom() - 0.5) * jitterAmount;
-
-      const x = baseX + jitterX;
-      const y = baseY + jitterY;
-
-      // Check if position is within hexagon bounds (approximate)
-      const distance = Math.sqrt(x * x + y * y);
-      if (distance <= 2.0) {
-        gridPositions.push({
-          x: x,
-          y: y,
-          var: gridPositions.length % fullTrees.length,
-          curr: "",
-        });
-      }
+    for (let i = 0; i < row.count; i++) {
+      const x = xOffset + i * horizontalSpacing;
+      pushPoint(x, y);
     }
   }
-
-  // Shuffle and take first 50
-  shuffle(gridPositions);
-  for (let i = 0; i < Math.min(25, gridPositions.length); i++) {
-    positions.push(gridPositions[i]);
-  }
-
-  // If we don't have enough positions within the hex, fill remaining with fallback
-  while (positions.length < 25) {
-    const angle = seededRandom() * Math.PI * 2;
-    const distance = Math.sqrt(seededRandom()) * 1; // Keep within hex bounds
-    positions.push({
-      x: Math.cos(angle) * distance,
-      y: Math.sin(angle) * distance,
-      var: positions.length % fullTrees.length,
+  function pushPoint(x: number, y: number) {
+    points.push({
+      x,
+      y,
       curr: "",
+      var: rollRange(0, fullTrees.length - 1),
     });
   }
-
-  return positions;
+  for (let i in points) {
+    //points[i].x += (Math.random() - 0.5) / 4;
+    //points[i].y += (Math.random() - 0.5) / 4;
+  }
+  shuffle(points);
+  return points;
 }
