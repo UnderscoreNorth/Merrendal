@@ -7,9 +7,11 @@
     type BuildingType,
     buildingTypes,
   } from "$lib/data/buildings";
-  import { startConstruction } from "$lib/simulation/buildings";
+  import { startConstruction, startUpgrade } from "$lib/simulation/buildings";
   import { assignNPCs, unassignNPC } from "$lib/simulation/living";
-  import { items } from "$lib/data/items";
+  import { items, type ItemName } from "$lib/data/items";
+  import { startLandConversion } from "$lib/simulation/farming";
+  import type { UpgradeType } from "$lib/data/buildings";
 
   $: area = $openModals["areaDetail"] as Area;
   game.subscribe((a) => {
@@ -22,8 +24,20 @@
   }
   $: getProgress = (project: ProjectType) => {
     if (project.type == "demolition") return project.progress;
+    if (project.type == "landConversion") {
+      const percentage = (project.progress / project.targetAcres) * 100;
+      return `${project.progress.toFixed(2)} / ${project.targetAcres.toFixed(2)} Acres (${percentage.toFixed(1)}%)`;
+    }
     const buildingTemplate = buildingTypes[project.building.buildingType];
     if (project.type == "construction") {
+      // Special handling for Dirt Road construction
+      if (project.building.buildingType === "Dirt Road") {
+        //@ts-ignore
+        const workDays = project.progress["Work Days"] ?? 0;
+        const requiredDays = 10;
+        const percentage = (workDays / requiredDays) * 100;
+        return `${workDays.toFixed(1)} / ${requiredDays} days (${percentage.toFixed(1)}%)`;
+      }
       return `<table>${recordLoop(buildingTemplate.requirements)
         .map(([itemName, amount]) => {
           return `<tr>
@@ -33,7 +47,15 @@
           <td>${(((project.progress[itemName] ?? 0) / amount) * 100).toFixed(2)}%</td></tr>`;
         })
         .join("")}</table>`;
-    } else {
+    } else if (project.type == "upgrade") {
+      // Special handling for Convert to Arable Land
+      if (project.upgrade === "Convert to Arable Land") {
+        //@ts-ignore
+        const workDays = project.progress["Work Days"] ?? 0;
+        const requiredDays = 10;
+        const percentage = (workDays / requiredDays) * 100;
+        return `${workDays.toFixed(1)} / ${requiredDays} days (${percentage.toFixed(1)}%)`;
+      }
       //@ts-ignore
       return recordLoop(buildingTemplate.upgrades[project.upgrade].requirements)
         .map(([itemName, amount]) => {
@@ -55,15 +77,130 @@
       .join("")}</table>`;
   };
   function addWorker(building: Building, num: number) {
-    if (num == 1) {
-      assignNPCs($game, building, 1);
+    // Special handling for burgages
+    if (building.buildingType === "Burgage") {
+      if (num == 1) {
+        // Add a resident to work at the burgage
+        const residents = $game.npcs.filter(
+          (npc) => npc.home === building.id && npc.age >= 16,
+        );
+
+        if (residents.length > 0) {
+          // Find first resident not already "working" at burgage
+          const resident = residents.find((r) => !building.workers.has(r.id));
+          if (resident) {
+            // If they have a job elsewhere, unassign them
+            if (
+              resident.job?.attached &&
+              resident.job.attached !== building.id
+            ) {
+              unassignNPC($game, resident);
+            }
+
+            // Add them to burgage workers
+            building.workers.add(resident.id);
+            resident.job = {
+              title: "None",
+              stuck: false,
+              attached: building.id,
+              recipe: building.allowedRecipes[0],
+            };
+          }
+        }
+      } else {
+        // Remove a worker from burgage
+        const workerId = Array.from(building.workers)[0];
+        if (workerId) {
+          building.workers.delete(workerId);
+          const npc = $game.npcs.find((i) => i.id === workerId);
+          if (npc && npc.job) {
+            npc.job = { title: "None", stuck: false };
+          }
+        }
+      }
     } else {
-      const npc = $game.npcs.find(
-        (i) => i.id == Array.from(building.workers)[0],
-      );
-      if (npc !== undefined) unassignNPC($game, npc);
+      // Normal building behavior
+      if (num == 1) {
+        assignNPCs($game, building, 1);
+        // Set default recipe to first available recipe
+        const workers = $game.npcs.filter((npc) =>
+          building.workers.has(npc.id),
+        );
+        if (workers.length && building.allowedRecipes.length) {
+          const newWorker = workers[workers.length - 1];
+          if (newWorker.job) {
+            newWorker.job.recipe = building.allowedRecipes[0];
+          }
+        }
+      } else {
+        const npc = $game.npcs.find(
+          (i) => i.id == Array.from(building.workers)[0],
+        );
+        if (npc !== undefined) unassignNPC($game, npc);
+      }
     }
     area = area;
+    $game = $game;
+  }
+  function setWorkerRecipe(workerId: string, recipe: ItemName) {
+    const worker = $game.npcs.find((npc) => npc.id === workerId);
+    if (worker && worker.job) {
+      worker.job.recipe = recipe;
+      $game = $game;
+    }
+  }
+  function setAllRecipes(building: Building) {
+    if (!building.allowedRecipes.length) return;
+    const workers = $game.npcs.filter((npc) => building.workers.has(npc.id));
+    const defaultRecipe = building.allowedRecipes[0];
+    for (const worker of workers) {
+      if (worker.job) {
+        worker.job.recipe = defaultRecipe;
+      }
+    }
+    $game = $game;
+  }
+  function startUpgradeHandler(building: Building, upgradeType: UpgradeType) {
+    startUpgrade(area, building, upgradeType);
+    area = area;
+    $game = $game;
+  }
+  function getAvailableUpgrades(building: Building) {
+    const buildingTemplate = buildingTypes[building.buildingType];
+    const upgradeEntries = Object.entries(buildingTemplate.upgrades);
+
+    return upgradeEntries.filter(([upgradeName, upgradeData]) => {
+      // Check if upgrade already built
+      if (building.upgrades[upgradeName]?.status === "built") {
+        // Only allow if explicitly marked as repeatable
+        if (upgradeData.repeatable === true) {
+          return true;
+        }
+        return false;
+      }
+
+      // Check if upgrade is in progress
+      const inProgress = area.currentProjects.some(
+        (p) =>
+          p.type === "upgrade" &&
+          p.building.id === building.id &&
+          p.upgrade === upgradeName,
+      );
+      if (inProgress) return false;
+
+      // Check group key exclusions - only one upgrade per group allowed
+      if (upgradeData.groupKey) {
+        const hasOtherInGroup = Object.entries(buildingTemplate.upgrades).some(
+          ([otherName, otherData]) =>
+            otherName !== upgradeName &&
+            otherData.groupKey === upgradeData.groupKey &&
+            building.upgrades[otherName]?.status === "built",
+        );
+        if (hasOtherInGroup) return false;
+      }
+
+      return true;
+    });
   }
   function cancelProject(project: ProjectType) {
     let index = area.currentProjects.findIndex((i) => i.id == project.id);
@@ -72,6 +209,25 @@
       area = area;
     }
   }
+  function startLandConversionHandler() {
+    const success = startLandConversion(area, 1);
+    if (success) {
+      area = area;
+      $game = $game;
+    }
+  }
+  $: getUnusedLand = () => {
+    const usedLand =
+      area.arableLand +
+      area.buildingLand +
+      area.currentProjects
+        .filter((i) => i.type == "construction")
+        .reduce((a, b) => {
+          return a + buildingTypes[b.building.buildingType].size;
+        }, 0) +
+      (area.terrain.forested * area.acres) / 100;
+    return area.acres - usedLand;
+  };
   function checkDisabled(buildingType: BuildingType) {
     const riverBuildings: BuildingType[] = [
       "Stone Bridge",
@@ -164,89 +320,168 @@
           </td>
         </tr>
       {/if}
+      {#if area.arableLand > 0}
+        <tr>
+          <th colspan="2" style="text-align: center; padding-top: 1em;">
+            <strong>Farming</strong>
+          </th>
+        </tr>
+        <tr>
+          <th>Planted Grain</th>
+          <td>{(area.yields["Planted Grain"] ?? 0).toFixed(2)} Acres</td>
+        </tr>
+        <tr>
+          <th>Unsowed Land</th>
+          <td>
+            {(area.arableLand - (area.yields["Planted Grain"] ?? 0)).toFixed(2)}
+            Acres
+          </td>
+        </tr>
+        <tr>
+          <th>Current Season</th>
+          <td>
+            {$game.season}
+            {#if $game.season === "Spring"}
+              (Sowing)
+            {:else if $game.season === "Summer"}
+              (Growing)
+            {:else if $game.season === "Autumn"}
+              (Harvesting)
+            {:else}
+              (Fallow)
+            {/if}
+          </td>
+        </tr>
+      {/if}
     </table>
   </section>
   <section></section>
+
+  <section class="buildings">
+    <table>
+      <tr
+        ><th>Building</th><th>Status</th><th>Workers</th><th>Recipe</th><th
+          >Upgrades</th
+        ></tr>
+      {#each area.buildings as building}
+        <tr>
+          <td style={`display: flex;align-items: center;gap: 0.5rem;`}>
+            <div
+              class={"building"}
+              style:background-position={`${buildingTypes[building.buildingType].icon.x * -64}px ${buildingTypes[building.buildingType].icon.y * -64}px`}>
+            </div>
+            {building.buildingType}
+          </td>
+          <td>
+            {building.status}
+            <br />
+            {@html getMaintenance(building)}
+          </td>
+          <td>
+            {#each $game.npcs.filter( (i) => building.workers.has(i.id), ) as worker}
+              <div>{worker.fName}</div>
+            {/each}
+            {#if "liveIn" in buildingTypes[building.buildingType]}
+              {#each $game.npcs.filter((i) => i.home == building.id) as npc}
+                <div>{npc.fName}</div>
+              {/each}
+            {/if}
+          </td>
+          <td>
+            {#if building.allowedRecipes.length > 0}
+              {#each $game.npcs.filter( (i) => building.workers.has(i.id), ) as worker}
+                <div class="recipe-select">
+                  <select
+                    value={worker.job?.recipe ?? building.allowedRecipes[0]}
+                    on:change={(e) =>
+                      setWorkerRecipe(worker.id, e.currentTarget.value)}>
+                    {#each building.allowedRecipes as recipe}
+                      <option value={recipe}>{recipe}</option>
+                    {/each}
+                  </select>
+                </div>
+              {/each}
+              {#if building.workers.size > 1}
+                <button
+                  class="set-all-btn"
+                  on:click={() => setAllRecipes(building)}>
+                  Set All to {building.allowedRecipes[0]}
+                </button>
+              {/if}
+            {:else}
+              <div>-</div>
+            {/if}
+          </td>
+          <td class="upgrades-cell">
+            {#each getAvailableUpgrades(building) as [upgradeName, upgradeData]}
+              <button
+                class="upgrade-btn"
+                on:click={() => startUpgradeHandler(building, upgradeName)}>
+                {upgradeName}
+              </button>
+            {/each}
+          </td>
+          {#if building.maxPops}
+            <td>
+              {building.workers.size}/{building.maxPops}
+              <br /><button
+                disabled={building.workers.size >= building.maxPops}
+                on:click={() => addWorker(building, 1)}>+</button
+              ><button
+                disabled={building.workers.size == 0}
+                on:click={() => addWorker(building, -1)}>-</button>
+            </td>
+          {/if}
+        </tr>
+      {/each}
+    </table>
+    <hr />
+    <table>
+      <tr>
+        <th>Project</th><th>Progress</th><th>Priority</th>
+      </tr>
+      {#each Object.values(area.currentProjects) as project}
+        <tr>
+          <td>
+            {#if project.type === "landConversion"}
+              Land Conversion
+            {:else}
+              {project.building.buildingType} {project.type}
+            {/if}
+          </td>
+          <td>{@html getProgress(project)}</td>
+          <td
+            ><input
+              class="priorityInput"
+              bind:value={project.priority}
+              type="number"
+              step="1"
+              min="1"
+              max="10" /></td>
+          <td
+            ><button on:click={() => cancelProject(project)}>Cancel</button
+            ></td>
+        </tr>
+      {/each}
+    </table>
+  </section>
   <section>
     {#each Array.from(new Set(Object.values(buildingTypes).map((i) => i.category))) as category}
       {category}
-      <hr />
       <div class="constructionContainer">
         {#key area}
           {#each recordLoop(buildingTypes).filter((i) => i[1].category == category) as [buildingType, buildingData]}
             <!-- svelte-ignore a11y-click-events-have-key-events -->
             <div
-              class={checkDisabled(buildingType)}
+              class={checkDisabled(buildingType) + " building"}
               on:click={() => startConstructionHandler(buildingType)}
-              style:background-position={`${buildingData.icon.x * -64}px ${buildingData.icon.y * -64}px`}>
+              style:background-position={`${buildingData.icon.x * -32}px ${buildingData.icon.y * -32}px`}>
               {buildingType}
             </div>
           {/each}
         {/key}
       </div>
     {/each}
-  </section>
-  <section class="buildings">
-    <table>
-      {#if area.buildings.length}
-        <tr><th>Building</th><th>Status</th><th>Workers</th></tr>
-        {#each area.buildings as building}
-          <tr>
-            <td>{building.buildingType} </td>
-            <td>
-              {building.status}
-              <br />
-              {@html getMaintenance(building)}
-            </td>
-            <td>
-              {#each $game.npcs
-                .filter((i) => building.workers.has(i.id))
-                .map((i) => i.fName) as worker}
-                <div>{worker}</div>
-              {/each}
-              {#if "liveIn" in buildingTypes[building.buildingType]}
-                {#each $game.npcs.filter((i) => i.home == building.id) as npc}
-                  <div>{npc.fName}</div>
-                {/each}
-              {/if}
-            </td>
-            {#if building.maxPops}
-              <td>
-                {building.workers.size}/{building.maxPops}
-                <br /><button
-                  disabled={building.workers.size >= building.maxPops}
-                  on:click={() => addWorker(building, 1)}>+</button
-                ><button
-                  disabled={building.workers.size == 0}
-                  on:click={() => addWorker(building, -1)}>-</button>
-              </td>
-            {/if}
-          </tr>
-        {/each}
-      {/if}
-      {#if Object.values(area.currentProjects).length}
-        <tr>
-          <th>Project</th><th>Progress</th><th>Priority</th>
-        </tr>
-        {#each Object.values(area.currentProjects) as project}
-          <tr>
-            <td>{project.building.buildingType} {project.type}</td>
-            <td>{@html getProgress(project)}</td>
-            <td
-              ><input
-                class="priorityInput"
-                bind:value={project.priority}
-                type="number"
-                step="1"
-                min="1"
-                max="10" /></td>
-            <td
-              ><button on:click={() => cancelProject(project)}>Cancel</button
-              ></td>
-          </tr>
-        {/each}
-      {/if}
-    </table>
   </section>
 </div>
 
@@ -266,14 +501,15 @@
     margin-bottom: 1rem;
     gap: 5px;
   }
-  .constructionContainer div {
-    width: 64px;
-    height: 64px;
+  .building {
+    width: 32px;
+    height: 32px;
     text-align: center;
     border: solid 1px black;
     cursor: pointer;
     background: url("icons/buildings/buildings.png");
     background-size: 800% 400%;
+    font-size: smaller;
     color: gold;
     text-shadow: 0 0 3px black;
   }
@@ -333,5 +569,36 @@
 
   td {
     text-align: right;
+  }
+
+  .recipe-select {
+    margin-bottom: 0.25em;
+  }
+
+  .recipe-select select {
+    font-family: inherit;
+    font-size: inherit;
+    background: none;
+    border: 1px solid currentColor;
+    padding: 0.2em 0.5em;
+    cursor: pointer;
+    color: inherit;
+  }
+
+  .set-all-btn {
+    margin-top: 0.5em;
+    font-size: 0.9em;
+    padding: 0.3em 0.6em;
+  }
+
+  .upgrades-cell {
+    text-align: left;
+  }
+
+  .upgrade-btn {
+    display: block;
+    margin-bottom: 0.25em;
+    font-size: 0.9em;
+    padding: 0.3em 0.6em;
   }
 </style>

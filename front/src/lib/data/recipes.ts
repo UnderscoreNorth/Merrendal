@@ -28,7 +28,9 @@ export const recipes = {
       );
 
       // Find the area where this building is located
-      const area = gs.areas.find((a) => a.buildings.some((b) => b.id === building.id));
+      const area = gs.areas.find((a) =>
+        a.buildings.some((b) => b.id === building.id),
+      );
 
       if (area) {
         // Each point of forest coverage is worth 20000 lumber
@@ -39,7 +41,10 @@ export const recipes = {
         if (availableLumber >= amount) {
           // Deplete from local area
           const forestUsed = amount / lumberPerForest;
-          area.terrain.forested = Math.max(0, area.terrain.forested - forestUsed);
+          area.terrain.forested = Math.max(
+            0,
+            area.terrain.forested - forestUsed,
+          );
         } else if (availableLumber > 0) {
           // Use what's left in local area, then check neighbors
           amount = availableLumber;
@@ -50,17 +55,27 @@ export const recipes = {
           let remainingAmount = amount;
           const forestedNeighbors = gs.areas.filter((a) => {
             const neighborId = fromCube(a.loc);
-            return neighboringCubes.some(n => fromCube(n) === neighborId) && a.terrain.forested > 0;
+            return (
+              neighboringCubes.some((n) => fromCube(n) === neighborId) &&
+              a.terrain.forested > 0
+            );
           });
 
           if (forestedNeighbors.length > 0) {
             // Pick a random forested neighbor
-            const randomNeighbor = forestedNeighbors[Math.floor(Math.random() * forestedNeighbors.length)];
-            const neighborAvailableLumber = randomNeighbor.terrain.forested * lumberPerForest;
+            const randomNeighbor =
+              forestedNeighbors[
+                Math.floor(Math.random() * forestedNeighbors.length)
+              ];
+            const neighborAvailableLumber =
+              randomNeighbor.terrain.forested * lumberPerForest;
 
             if (neighborAvailableLumber >= remainingAmount) {
               const forestUsed = remainingAmount / lumberPerForest;
-              randomNeighbor.terrain.forested = Math.max(0, randomNeighbor.terrain.forested - forestUsed);
+              randomNeighbor.terrain.forested = Math.max(
+                0,
+                randomNeighbor.terrain.forested - forestUsed,
+              );
             } else {
               // Use all available from neighbor
               amount = neighborAvailableLumber;
@@ -644,19 +659,6 @@ export const recipes = {
       return { quality, amount, input: { "Iron Ingot": 3 }, numPeriods: 1 };
     },
   },
-  Firewood: {
-    numWorkers: 1,
-    constructor: ({ workers }) => {
-      let { quality, amount } = getQualityAndAmount(
-        1000,
-        workers[0],
-        "Lumberjack",
-        ["STR", "CON"],
-        "amount",
-      );
-      return { quality, amount, input: { Lumber: 1500 }, numPeriods: 1 };
-    },
-  },
   Bows: {
     numWorkers: 1,
     constructor: ({ workers }) => {
@@ -774,7 +776,9 @@ export const recipes = {
 
 function getTotalForestCoverage(building: Building, gs: GameState): number {
   // Find the area where this building is located
-  const area = gs.areas.find((a) => a.buildings.some((b) => b.id === building.id));
+  const area = gs.areas.find((a) =>
+    a.buildings.some((b) => b.id === building.id),
+  );
 
   if (!area) return 0;
 

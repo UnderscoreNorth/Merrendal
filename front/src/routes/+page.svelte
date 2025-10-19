@@ -15,6 +15,7 @@
   import SelectedCell from "$lib/ui/Modals/SelectedCell.svelte";
   import AreaDetail from "$lib/ui/Modals/AreaDetail.svelte";
   import StartingArea from "$lib/ui/Modals/StartingArea.svelte";
+  import Debug from "$lib/ui/Cards/Debug.svelte";
   init();
 </script>
 
@@ -68,6 +69,9 @@
       <Collapsible headerName="Log" headerType={2} hidden={true}>
         <Logs />
       </Collapsible>
+    </Card>
+    <Card>
+      <Debug />
     </Card>
   </div>
   <div><Map /></div>

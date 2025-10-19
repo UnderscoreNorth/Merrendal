@@ -2,7 +2,6 @@ import { generateFName, type Villager } from "$lib/data/living";
 import { type GameState } from "$lib/stores";
 import { pick } from "$lib/util/rolls";
 import { getAllBuildings } from "./buildings";
-import { calculateDaysOfFoodRemaining } from "./food";
 import { rollStats, unassignNPC } from "./living";
 import { log } from "./log";
 import { v4 as uuidv4 } from "uuid";
@@ -80,13 +79,30 @@ export function processOldAgeDeaths(gs: GameState) {
   }*/
 }
 export function processBirths(gs: GameState) {
-  if (calculateDaysOfFoodRemaining(gs) > 365) {
-    const birthChance =
-      Math.pow(1.001, gs.npcs.filter((i) => i.age >= 16 && i.age < 50).length) -
-      1;
-    if (Math.random() < birthChance) {
-      // Find village for home area
+  // Find all couples with homes
+  const couplesWithHomes = gs.npcs.filter((npc) => {
+    // Must have a spouse and a home
+    if (!npc.spouse || !npc.home) return false;
 
+    // Must be of childbearing age (16-50)
+    if (npc.age < 16 || npc.age >= 50) return false;
+
+    // Check if they have any children under 4 years old
+    const hasYoungChild = npc.children.some((childId) => {
+      const child = gs.npcs.find((c) => c.id === childId);
+      return child && child.age < 4;
+    });
+
+    // Can only give birth if they don't have young children
+    return !hasYoungChild;
+  });
+
+  // Try to give birth for each eligible couple
+  for (const parent of couplesWithHomes) {
+    // Small chance per day (adjusted for realistic birth rates)
+    const birthChance = 0.001; // ~0.1% per day = ~36.5% per year for eligible couples
+
+    if (Math.random() < birthChance) {
       const newNPC: Villager = {
         id: uuidv4(),
         fName: generateFName(),
@@ -103,12 +119,22 @@ export function processBirths(gs: GameState) {
         apprentices: [],
         children: [],
         equipement: [],
-        home: "",
+        home: parent.home, // Assign to parents' home
         type: "Villager",
         health: 100,
       };
+
+      // Add child to both parents' children lists
+      parent.children.push(newNPC.id);
+      if (parent.spouse) {
+        const spouse = gs.npcs.find((npc) => npc.id === parent.spouse);
+        if (spouse) {
+          spouse.children.push(newNPC.id);
+        }
+      }
+
       gs.npcs.push(newNPC);
-      log(gs, `<i>${newNPC.fName}</i> was born.`, ["Mortality"]);
+      log(gs, `<i>${newNPC.fName}</i> was born to <i>${parent.fName}</i>.`, ["Mortality"]);
       //if (gs.lord) gs.lord.reignStats.born++;
     }
   }

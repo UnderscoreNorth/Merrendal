@@ -8,7 +8,6 @@ import { buildingTypes } from "../data/buildings";
 import { type GameState } from "$lib/stores";
 import { type Area } from "$lib/data/areas";
 import { v4 as uuidv4 } from "uuid";
-import { type Villager } from "$lib/data/living";
 import { skillUp } from "./workers";
 import { recordLoop } from "$lib/util/recordLoop";
 import { getNeighboringCubes, fromCube } from "$lib/util/terrainHelpers";
@@ -58,6 +57,61 @@ export function doConstruction(gs: GameState) {
       let requirements: Record<string, number> = {};
 
       if (project.type === "construction" || project.type === "upgrade") {
+        // Special handling for Convert to Arable Land upgrade
+        if (project.type === "upgrade" && project.upgrade === "Convert to Arable Land") {
+          // This upgrade uses worker time instead of materials
+          //@ts-ignore - Using custom progress tracking for work days
+          const currentProgress = project.progress["Work Days"] ?? 0;
+          const requiredWorkDays = 10; // 10 days for 1 acre
+
+          if (currentProgress < requiredWorkDays) {
+            //@ts-ignore - Using custom progress tracking for work days
+            project.progress["Work Days"] = currentProgress + 0.1; // 0.1 per worker per period
+            workerAssigned = true;
+            gs.dailyWorkerActivity.add(worker.id);
+          }
+
+          // Check if complete
+          //@ts-ignore - Using custom progress tracking for work days
+          if ((project.progress["Work Days"] ?? 0) >= requiredWorkDays) {
+            // Remove from currentProjects
+            area.currentProjects.splice(i, 1);
+            // Add 1 acre of arable land
+            area.arableLand += 1;
+          }
+          continue;
+        }
+
+        // Special handling for Dirt Road construction
+        if (project.type === "construction" && project.building.buildingType === "Dirt Road") {
+          // Dirt Road uses worker time instead of materials
+          //@ts-ignore - Using custom progress tracking for work days
+          const currentProgress = project.progress["Work Days"] ?? 0;
+          const requiredWorkDays = 10; // 10 man-days for road
+
+          if (currentProgress < requiredWorkDays) {
+            //@ts-ignore - Using custom progress tracking for work days
+            project.progress["Work Days"] = currentProgress + 0.1; // 0.1 per worker per period
+            workerAssigned = true;
+            gs.dailyWorkerActivity.add(worker.id);
+          }
+
+          // Check if complete
+          //@ts-ignore - Using custom progress tracking for work days
+          if ((project.progress["Work Days"] ?? 0) >= requiredWorkDays) {
+            // Remove from currentProjects
+            area.currentProjects.splice(i, 1);
+            // Complete the building
+            project.building.built = {
+              day: gs.currentDay,
+              period: gs.currentPeriod,
+              year: gs.currentYear,
+            };
+            completeBuilding(gs, area, project.building);
+          }
+          continue;
+        }
+
         if (project.type === "construction") {
           requirements =
             buildingTypes[project.building.buildingType].requirements;
@@ -189,10 +243,26 @@ export function doConstruction(gs: GameState) {
               upgradeKey as keyof typeof buildingUpgrades
             ] as Upgrade | undefined;
 
-            project.building.upgrades[project.upgrade] = {
-              status: "built",
-              maintenanceCost: upgradeData?.maintenance?.cost ?? {},
-            };
+            // Handle special upgrade: Convert to Arable Land
+            if (project.upgrade === "Convert to Arable Land" && project.building.buildingType === "Farm Field") {
+              // Add 1 acre of arable land to the area
+              area.arableLand += 1;
+              // Don't mark as built for repeatable upgrades
+            } else {
+              project.building.upgrades[project.upgrade] = {
+                status: "built",
+                maintenanceCost: upgradeData?.maintenance?.cost ?? {},
+              };
+
+              // Add upgrade recipes to building's allowedRecipes if they exist
+              if (upgradeData?.allowedRecipes) {
+                for (const recipe of upgradeData.allowedRecipes) {
+                  if (!project.building.allowedRecipes.includes(recipe)) {
+                    project.building.allowedRecipes.push(recipe);
+                  }
+                }
+              }
+            }
           }
         }
       } else if (project.type === "demolition") {
@@ -320,17 +390,71 @@ export function completeBuilding(
 export function maintenance(gs: GameState) {
   if (gs.currentPeriod == "Evening") return;
   const buildings = getAllBuildings(gs);
-  const items = ["Lumber", "Stone", "Iron Ingot", "Leather"] as const;
+
   for (const building of buildings) {
-    if (Math.random() > 0.5) continue;
-    for (const [itemName, amount] of recordLoop(
-      buildingTypes[building.buildingType].requirements,
-    )) {
-      //@ts-ignore
-      building.maintenanceCost[itemName] =
-        (building.maintenanceCost[itemName] ?? 0) + amount * (0.02 / 180);
+    // Initialize nextMaintenance if not set
+    if (building.nextMaintenance === undefined) {
+      const randomDay = Math.floor(Math.random() * 360) + 1;
+      // Schedule for next year if random day is today or earlier, otherwise this year
+      const year = randomDay <= gs.currentDay ? gs.currentYear + 1 : gs.currentYear;
+      building.nextMaintenance = { year, day: randomDay };
+    }
+
+    // Check if maintenance is due today
+    if (
+      building.nextMaintenance.year === gs.currentYear &&
+      building.nextMaintenance.day === gs.currentDay
+    ) {
+      // Calculate maintenance cost (2% of building requirements)
+      const buildingTemplate = buildingTypes[building.buildingType];
+      for (const [itemName, amount] of recordLoop(buildingTemplate.requirements)) {
+        const maintenanceCost = amount * 0.02;
+        //@ts-ignore
+        building.maintenanceCost[itemName] = (building.maintenanceCost[itemName] ?? 0) + maintenanceCost;
+      }
+
+      // Schedule next maintenance (random day next year)
+      const randomDay = Math.floor(Math.random() * 360) + 1;
+      building.nextMaintenance = { year: gs.currentYear + 1, day: randomDay };
+    }
+
+    // Check upgrades for maintenance
+    for (const [upgradeName, upgrade] of Object.entries(building.upgrades)) {
+      if (upgrade.status !== "built") continue;
+
+      // Initialize nextMaintenance for upgrade if not set
+      if (upgrade.nextMaintenance === undefined) {
+        const randomDay = Math.floor(Math.random() * 360) + 1;
+        // Schedule for next year if random day is today or earlier, otherwise this year
+        const year = randomDay <= gs.currentDay ? gs.currentYear + 1 : gs.currentYear;
+        upgrade.nextMaintenance = { year, day: randomDay };
+      }
+
+      // Check if maintenance is due today for this upgrade
+      if (
+        upgrade.nextMaintenance.year === gs.currentYear &&
+        upgrade.nextMaintenance.day === gs.currentDay
+      ) {
+        const buildingTemplate = buildingTypes[building.buildingType];
+        //@ts-ignore - Dynamic upgrade lookup
+        const upgradeData = buildingTemplate.upgrades[upgradeName] as Upgrade | undefined;
+
+        if (upgradeData && upgradeData.maintenance) {
+          for (const [itemName, amount] of Object.entries(upgradeData.maintenance.cost)) {
+            //@ts-ignore
+            upgrade.maintenanceCost[itemName] = (upgrade.maintenanceCost[itemName] ?? 0) + amount;
+          }
+        }
+
+        // Schedule next maintenance for upgrade (random day next year)
+        const randomDay = Math.floor(Math.random() * 360) + 1;
+        upgrade.nextMaintenance = { year: gs.currentYear + 1, day: randomDay };
+      }
     }
   }
+
+  // Process pending maintenance costs with idle workers
+  const items = ["Lumber", "Stone", "Iron Ingot", "Leather"] as const;
   for (const itemName of items) {
     if (
       typeof gs.inventory[itemName] == "number" &&
@@ -354,6 +478,7 @@ export function maintenance(gs: GameState) {
       const workers = gs.npcs
         .filter((i) => i.age >= 16 && !gs.dailyWorkerActivity.has(i.id))
         .sort((a, b) => (b.skills[skill] ?? 0) - (a.skills[skill] ?? 0));
+
       outerBlock: {
         for (const worker of workers) {
           let availableWork = 5 * (1 + (worker.skills[skill] ?? 0));
@@ -388,7 +513,6 @@ export function maintenance(gs: GameState) {
       }
     }
   }
-  //TODO: Periodic maintenance increase, default is 2% of cost per year
 }
 
 export function demolishBuilding(area: Area, building: Building) {

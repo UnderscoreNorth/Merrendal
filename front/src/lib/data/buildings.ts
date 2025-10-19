@@ -13,11 +13,13 @@ export type Building = {
   stuck?: boolean;
   status: "built" | "ruined" | "demolishing";
   maintenanceCost: ItemRecord;
+  nextMaintenance?: { year: number; day: number }; // When next maintenance is due
   upgrades: Record<
     string,
     {
       status: "built" | "ruined" | "demolishing";
       maintenanceCost: ItemRecord;
+      nextMaintenance?: { year: number; day: number }; // When next maintenance is due
     }
   >;
   currentProjects: Recipe[];
@@ -46,6 +48,7 @@ export type BuildingTemplate = {
 };
 export type Upgrade = {
   groupKey?: string;
+  repeatable?: boolean; // If true, can be done multiple times
   requirements: ItemRecord;
   maintenance?: {
     yearlyLoss: number;
@@ -86,7 +89,7 @@ export const buildingTypes = {
     maxPops: 10,
     occupationTitle: "Smelter",
     upgrades: {},
-    allowedRecipes: ["Iron Ore"],
+    allowedRecipes: ["Iron Ingot"],
     category: "Industry",
     icon: {
       x: 1,
@@ -367,7 +370,7 @@ export const buildingTypes = {
     maxPops: 4,
     occupationTitle: "Craftsman",
     upgrades: {},
-    allowedRecipes: ["Carts", "Tooling", "Arrows"],
+    allowedRecipes: ["Carts", "Tooling", "Arrows", "Bows"],
     category: "Industry",
 
     icon: {
@@ -442,7 +445,7 @@ export const buildingTypes = {
   },
   Burgage: {
     requirements: { Lumber: 5000 },
-    maxPops: 0,
+    maxPops: 2,
     allowedRecipes: ["Vegetables", "Porridge"],
     liveIn: true,
     upgrades: {
@@ -583,5 +586,19 @@ export const buildingTypes = {
     size: 0,
     icon: { x: 5, y: 2 },
     maxAllowed: 1,
+  },
+  "Farm Field": {
+    maxPops: 0,
+    requirements: {},
+    upgrades: {
+      "Convert to Arable Land": {
+        repeatable: true,
+        requirements: {},
+      },
+    },
+    category: "Food",
+    allowedRecipes: [],
+    size: 0,
+    icon: { x: 6, y: 2 },
   },
 } as const satisfies Record<string, BuildingTemplate>;

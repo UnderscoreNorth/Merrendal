@@ -7,9 +7,16 @@ import { recipes as baseRecipes } from "../data/recipes";
 export function doAssignedJobs(gs: GameState) {
   if (gs.currentPeriod == "Evening") return;
   for (const building of getAllBuildings(gs)) {
-    const workers = gs.npcs.filter(
-      (i) => building.workers.has(i.id) && !gs.dailyWorkerActivity.has(i.id),
-    );
+    // For burgages, use residents instead of assigned workers
+    const isBurgage = building.buildingType === "Burgage";
+    const workers = isBurgage
+      ? gs.npcs.filter(
+          (i) => i.home === building.id && i.age >= 16 && !gs.dailyWorkerActivity.has(i.id),
+        )
+      : gs.npcs.filter(
+          (i) => building.workers.has(i.id) && !gs.dailyWorkerActivity.has(i.id),
+        );
+
     let recipes = Array.from(
       new Set(workers.map((i) => i.job?.recipe).filter((i) => i !== undefined)),
     );

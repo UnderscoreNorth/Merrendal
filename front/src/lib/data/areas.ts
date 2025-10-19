@@ -39,4 +39,10 @@ export type ProjectType = { id: string; priority: number } & (
       upgrade: UpgradeType;
       progress: ItemRecord;
     }
+  | {
+      type: "landConversion";
+      targetAcres: number;
+      progress: number; // Acres converted so far
+      workers: Set<string>; // IDs of assigned workers
+    }
 );

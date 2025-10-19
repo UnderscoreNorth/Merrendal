@@ -355,6 +355,21 @@ export class Map {
             (o) => o.terrain.elevation < tile.terrain.elevation,
           )[0];
         }
+        for (const oTile of this.getRing(
+          tile.loc.q,
+          tile.loc.s,
+          tile.loc.r,
+          1,
+        )) {
+          if (oTile.terrain.elevation - tile.terrain.elevation > 5) {
+            oTile.terrain.elevation = rollRange(
+              tile.terrain.elevation,
+              oTile.terrain.elevation,
+            );
+            oTile.terrain.topography =
+              oTile.terrain.elevation <= 10 ? "Plains" : "Mountain";
+          }
+        }
         if (tile.terrain.river == "init") foundWater = true;
         attempts++;
       } while (!foundWater);

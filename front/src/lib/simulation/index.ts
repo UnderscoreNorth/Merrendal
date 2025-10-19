@@ -4,6 +4,7 @@ import { advanceTime } from "./time";
 import { doAssignedJobs } from "./recipes";
 import { doConstruction, maintenance } from "./buildings";
 import { consumeFood } from "./food";
+import { doFarming } from "./farming";
 
 export function simulateDay() {
   const gs = get(game);
@@ -13,11 +14,10 @@ export function simulateDay() {
   doAssignedJobs(gs);
   doConstruction(gs);
   maintenance(gs);
-  //doFarming
-  //doConstruction
+  doFarming(gs);
   if (gs.currentPeriod == "Afternoon") consumeFood(gs);
   advanceTime(gs);
   // Update game state
   game.set(gs);
-  //console.log(gs);
+  gs.dailyWorkerActivity.clear();
 }

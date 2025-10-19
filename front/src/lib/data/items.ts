@@ -159,10 +159,6 @@ export const items = {
     unit: "Lb",
     category: ["Consumable"],
   },
-  Firewood: {
-    unit: "Lb",
-    category: ["Consumable"],
-  },
   Carts: {
     unit: "Unit",
     category: ["Consumable"],

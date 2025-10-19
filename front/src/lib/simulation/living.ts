@@ -32,14 +32,12 @@ export function assignNPCs(gs: GameState, target: Building, num: number) {
     if ("stuck" in target && typeof target.stuck == "boolean")
       stuck = target.stuck;
   }
-
-  if (title == "") throw target;
   let assigned = 0;
   for (let i = 0; i < num; i++) {
     let npc = gs.npcs
       .filter(
         (npc) =>
-          (!npc.job || npc.job.title == "") &&
+          (npc.job == undefined || npc.job.title == "") &&
           npc.age >= 16 &&
           !gs.dailyWorkerActivity.has(npc.id),
       )
