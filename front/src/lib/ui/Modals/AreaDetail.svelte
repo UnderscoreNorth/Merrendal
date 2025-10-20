@@ -19,7 +19,7 @@
   });
   function startConstructionHandler(selectedBuilding: BuildingType) {
     if (checkDisabled(selectedBuilding) == "disabled") return;
-    startConstruction($game, selectedBuilding, area);
+    startConstruction($game, selectedBuilding, area, true);
     $game = $game;
   }
   $: getProgress = (project: ProjectType) => {

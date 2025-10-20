@@ -18,6 +18,7 @@ export type Area = {
     river: string;
     road: string;
   };
+  groupID: string;
   yields: ItemRecord;
 };
 

@@ -78,6 +78,7 @@ export function drawTrees(
   }
   availablePositions.forEach((pos, index) => {
     if (pos.curr == "") return;
+    if (pos.var == "Dirt Road") return;
     const data = mapSprites[fromCube(cell.loc)];
     if (!data.trees[index]) {
       const texture =
@@ -93,11 +94,14 @@ export function drawTrees(
         pos.x * hexRadius,
         pos.y * hexRadius * 0.65, // Slightly compress Y to fit hex better
       );
-
       // Scale trees appropriately
       const treeScale = typeof pos.var == "number" ? u / 120 : u / 500; // Adjust scale as needed
       treeSprite.scale.set(treeScale, treeScale);
 
+      if (typeof pos.var == "string" && pos.var.includes("Bridge")) {
+        treeSprite.position.set(0, 1);
+        treeSprite.scale.set(u / 400, u / 400);
+      }
       // Add some random brightness variation
       let brightness = 1;
       if (typeof pos.var == "number") brightness = 0.9 + (pos.var % 10) * 0.01;

@@ -17,6 +17,7 @@
 <div class="contents">
   {#if $openModals["startingArea"] !== undefined}
     <div>Location: {area.areaID}</div>
+    <div>Island: {area.groupID}</div>
     <div>Total Acres: {area.acres}</div>
     <div style:margin-bottom="1rem">
       Tree Coverage: {area.terrain.forested.toFixed(0)}%
