@@ -797,7 +797,7 @@
     text-align: center;
     border: solid 1px black;
     cursor: pointer;
-    background: url("icons/buildings/buildings.png");
+    background: url("../icons/buildings/buildings.png");
     background-size: 800% 400%;
     font-size: smaller;
     color: gold;
