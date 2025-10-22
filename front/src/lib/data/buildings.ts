@@ -2,6 +2,8 @@ import type { ItemName, ItemRecord } from "./items";
 import type { Recipe } from "./recipes";
 import type { Time } from "./time";
 
+export type FieldRotationType = "2-field" | "3-field";
+
 export type Building = {
   id: string;
   type: "building";
@@ -20,11 +22,17 @@ export type Building = {
       status: "built" | "ruined" | "demolishing";
       maintenanceCost: ItemRecord;
       nextMaintenance?: { year: number; day: number }; // When next maintenance is due
+      targetArea?: string; // Area ID where this upgrade is placed (for expansions)
     }
   >;
   currentProjects: Recipe[];
   built: Time;
   allowedRecipes: ItemName[];
+  fieldRotation?: {
+    type: FieldRotationType;
+    currentYear: number; // 0, 1, 2, or 3 for tracking position in rotation
+  };
+  yields?: ItemRecord; // For Farm Field buildings (Planted Grain, Planted Legumes, etc.)
 };
 export type BuildingTemplate = {
   occupationTitle?: string;
@@ -56,6 +64,7 @@ export type Upgrade = {
   };
   allowedRecipes?: ItemName[];
   size?: number;
+  canExpandToNeighbor?: boolean; // If true, can place this upgrade in a neighboring tile
 };
 export type BuildingType = keyof typeof buildingTypes;
 export type UpgradeType = {
@@ -607,11 +616,13 @@ export const buildingTypes = {
       "Convert to Arable Land": {
         repeatable: true,
         requirements: {},
+        size: 1, // Adds 1 acre to the farm field
+        canExpandToNeighbor: true,
       },
     },
     category: "Food",
     allowedRecipes: [],
-    size: 0,
+    size: 1, // Starts with 1 acre
     icon: { x: 6, y: 2 },
   },
   Pasture: {
@@ -622,6 +633,7 @@ export const buildingTypes = {
         repeatable: true,
         requirements: { Lumber: 2000 },
         size: 1,
+        canExpandToNeighbor: true,
       },
     },
     occupationTitle: "Rancher",

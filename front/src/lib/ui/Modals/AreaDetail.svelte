@@ -12,25 +12,37 @@
   import { items, type ItemName } from "$lib/data/items";
   import { startLandConversion } from "$lib/simulation/farming";
   import type { UpgradeType } from "$lib/data/buildings";
-  import { assignAnimalToPasture, unassignAnimal, slaughterAnimal } from "$lib/simulation/animals";
+  import {
+    assignAnimalToPasture,
+    unassignAnimal,
+    slaughterAnimal,
+  } from "$lib/simulation/animals";
   import { animalType } from "$lib/data/animals";
   import type { AnimalType } from "$lib/data/living";
+  import { tileSelection } from "$lib/stores";
+  import { getNeighboringCubes, fromCube } from "$lib/util/terrainHelpers";
+  import {
+    getTotalBuildingSize,
+    getBuildingSizeInArea,
+  } from "$lib/simulation/buildings";
 
   $: area = $openModals["areaDetail"] as Area;
   game.subscribe((a) => {
     area = area;
   });
 
-  function setFieldRotation(type: FieldRotationType) {
-    if (!area.fieldRotation) {
-      area.fieldRotation = { type, currentYear: 0 };
+  function setFieldRotation(building: Building, type: FieldRotationType) {
+    if (!building.fieldRotation) {
+      building.fieldRotation = { type, currentYear: 0 };
     } else {
-      area.fieldRotation.type = type;
+      building.fieldRotation.type = type;
     }
     $game = $game;
   }
 
-  function getRotationCycle(rotation: { type: FieldRotationType; currentYear: number } | undefined): string {
+  function getRotationCycle(
+    rotation: { type: FieldRotationType; currentYear: number } | undefined,
+  ): string {
     if (!rotation) return "No rotation set";
 
     if (rotation.type === "2-field") {
@@ -51,7 +63,9 @@
     // Add sizes from built upgrades
     for (const building of area.buildings) {
       const buildingTemplate = buildingTypes[building.buildingType];
-      for (const [upgradeName, upgradeStatus] of Object.entries(building.upgrades)) {
+      for (const [upgradeName, upgradeStatus] of Object.entries(
+        building.upgrades,
+      )) {
         if (upgradeStatus.status === "built") {
           const upgradeData = buildingTemplate.upgrades[upgradeName];
           if (upgradeData && upgradeData.size) {
@@ -219,9 +233,64 @@
     $game = $game;
   }
   function startUpgradeHandler(building: Building, upgradeType: UpgradeType) {
-    startUpgrade(area, building, upgradeType);
-    area = area;
-    $game = $game;
+    const buildingTemplate = buildingTypes[building.buildingType];
+    // @ts-ignore - UpgradeType is a union type, runtime check ensures it exists
+    const upgradeData = buildingTemplate.upgrades[upgradeType];
+
+    // Check if this upgrade can expand to neighboring tiles
+    if (upgradeData?.canExpandToNeighbor) {
+      // Calculate eligible tiles (source area + neighbors)
+      const neighbors = getNeighboringCubes(area.loc);
+      const eligibleTiles = new Set<string>();
+
+      // Add the source area itself
+      eligibleTiles.add(area.areaID);
+
+      // Add neighboring areas that exist
+      for (const neighborCube of neighbors) {
+        const neighborId = fromCube(neighborCube);
+        const neighborArea = $game.areas.find(
+          (a) => fromCube(a.loc) === neighborId,
+        );
+        if (neighborArea) {
+          eligibleTiles.add(neighborArea.areaID);
+        }
+      }
+
+      // Hide the area detail modal
+      $openModals["areaDetail"] = undefined;
+
+      // Activate tile selection mode
+      $tileSelection = {
+        active: true,
+        sourceAreaId: area.areaID,
+        buildingId: building.id,
+        upgradeName: upgradeType,
+        eligibleTiles,
+        onSelect: (targetAreaId: string) => {
+          // Find the target area
+          const targetArea = $game.areas.find((a) => a.areaID === targetAreaId);
+          if (targetArea) {
+            // Start the upgrade with the target area
+            startUpgrade(targetArea, building, upgradeType, area.areaID);
+            $game = $game;
+          }
+          // Clear tile selection and restore area detail modal
+          $tileSelection = null;
+          $openModals["areaDetail"] = area;
+        },
+        onCancel: () => {
+          // Clear tile selection and restore area detail modal
+          $tileSelection = null;
+          $openModals["areaDetail"] = area;
+        },
+      };
+    } else {
+      // Normal upgrade without tile selection
+      startUpgrade(area, building, upgradeType);
+      area = area;
+      $game = $game;
+    }
   }
   function getAvailableUpgrades(building: Building) {
     const buildingTemplate = buildingTypes[building.buildingType];
@@ -284,7 +353,6 @@
   }
   $: getUnusedLand = () => {
     const usedLand =
-      area.arableLand +
       area.buildingLand +
       area.currentProjects
         .filter((i) => i.type == "construction")
@@ -300,26 +368,16 @@
    */
   function getPastureCapacity(building: Building): number {
     if (building.buildingType !== "Pasture") return 0;
-
-    let capacity = buildingTypes.Pasture.size; // Base size
-
-    // Add "Expand Pasture" upgrade size
-    const expandUpgrade = building.upgrades["Expand Pasture"];
-    if (expandUpgrade?.status === "built") {
-      const upgradeData = buildingTypes.Pasture.upgrades["Expand Pasture"];
-      if (upgradeData?.size) {
-        capacity += upgradeData.size;
-      }
-    }
-
-    return capacity;
+    return getTotalBuildingSize(building);
   }
 
   /**
    * Calculate used pasture space in a specific pasture
    */
   function getUsedPastureSpace(building: Building): number {
-    const animalsInPasture = $game.animals.filter((a) => a.pasture === building.id);
+    const animalsInPasture = $game.animals.filter(
+      (a) => a.pasture === building.id,
+    );
     let usedSpace = 0;
     for (const animal of animalsInPasture) {
       usedSpace += animalType[animal.animalType].acresPer;
@@ -362,7 +420,6 @@
       return "disabled";
     if (
       area.buildingLand +
-        area.arableLand +
         area.currentProjects
           .filter((i) => i.type == "construction")
           .reduce((a, b) => {
@@ -426,7 +483,6 @@
         ><th>Unused Land </th><td
           >{(
             area.acres -
-            area.arableLand -
             area.buildingLand -
             area.currentProjects
               .filter((i) => i.type == "construction")
@@ -444,77 +500,6 @@
             {#each Object.entries(area.yieldEff) as [itemName, eff]}
               <div>{itemName}: {(eff * 100).toFixed(1)}%</div>
             {/each}
-          </td>
-        </tr>
-      {/if}
-      {#if area.arableLand > 0}
-        <tr>
-          <th colspan="2" style="text-align: center; padding-top: 1em;">
-            <strong>Farming</strong>
-          </th>
-        </tr>
-        <tr>
-          <th>Field Rotation</th>
-          <td>
-            <select
-              value={area.fieldRotation?.type ?? ""}
-              on:change={(e) => {
-                const value = e.currentTarget.value;
-                if (value === "2-field" || value === "3-field") {
-                  setFieldRotation(value);
-                }
-              }}>
-              <option value="">None</option>
-              <option value="2-field">2-field (Grain→Fallow→Legumes→Grain)</option>
-              <option value="3-field">3-field (Grain→Legumes→Fallow)</option>
-            </select>
-          </td>
-        </tr>
-        {#if area.fieldRotation}
-          <tr>
-            <th>Current Crop</th>
-            <td>{getRotationCycle(area.fieldRotation)}</td>
-          </tr>
-          <tr>
-            <th>Rotation Year</th>
-            <td>
-              {area.fieldRotation.currentYear % (area.fieldRotation.type === "2-field" ? 4 : 3) + 1}
-              of {area.fieldRotation.type === "2-field" ? 4 : 3}
-            </td>
-          </tr>
-        {/if}
-        <tr>
-          <th>Planted Grain</th>
-          <td>{(area.yields["Planted Grain"] ?? 0).toFixed(2)} Acres</td>
-        </tr>
-        <tr>
-          <th>Planted Legumes</th>
-          <td>{(area.yields["Planted Legumes"] ?? 0).toFixed(2)} Acres</td>
-        </tr>
-        <tr>
-          <th>Unsowed Land</th>
-          <td>
-            {(
-              area.arableLand -
-              (area.yields["Planted Grain"] ?? 0) -
-              (area.yields["Planted Legumes"] ?? 0)
-            ).toFixed(2)}
-            Acres
-          </td>
-        </tr>
-        <tr>
-          <th>Current Season</th>
-          <td>
-            {$game.season}
-            {#if $game.season === "Spring"}
-              (Sowing)
-            {:else if $game.season === "Summer"}
-              (Growing)
-            {:else if $game.season === "Autumn"}
-              (Harvesting)
-            {:else}
-              (Winter)
-            {/if}
           </td>
         </tr>
       {/if}
@@ -660,8 +645,12 @@
         <div class="animal-management">
           <h4>Animal Management</h4>
           <div class="pasture-info">
-            <strong>Pasture Capacity:</strong>
-            {getUsedPastureSpace(selected).toFixed(2)} / {getPastureCapacity(selected)} acres
+            <strong>Total Pasture Size:</strong>
+            {getPastureCapacity(selected).toFixed(2)} acres<br />
+            <strong>On this tile:</strong>
+            {getBuildingSizeInArea(selected, area.areaID, $game).toFixed(2)} acres<br />
+            <strong>Space Used:</strong>
+            {getUsedPastureSpace(selected).toFixed(2)} acres
           </div>
 
           <h5>Animals in Pasture</h5>
@@ -669,11 +658,15 @@
             <div class="animal-row">
               <span>
                 {animal.animalType} (Age: {animal.age},
-                {animal.age >= animalType[animal.animalType].maturity ? "Adult" : "Young"})
+                {animal.age >= animalType[animal.animalType].maturity
+                  ? "Adult"
+                  : "Young"})
               </span>
               <div class="animal-actions">
-                <button on:click={() => removeAnimal(animal.id)}>Unassign</button>
-                <button on:click={() => handleSlaughter(animal.id)}>Slaughter</button>
+                <button on:click={() => removeAnimal(animal.id)}
+                  >Unassign</button>
+                <button on:click={() => handleSlaughter(animal.id)}
+                  >Slaughter</button>
               </div>
             </div>
           {/each}
@@ -683,20 +676,93 @@
             <div class="animal-row">
               <span>
                 {animal.animalType} (Age: {animal.age},
-                {animal.age >= animalType[animal.animalType].maturity ? "Adult" : "Young"})
+                {animal.age >= animalType[animal.animalType].maturity
+                  ? "Adult"
+                  : "Young"})
               </span>
               <div class="animal-actions">
                 <button
-                  disabled={getUsedPastureSpace(selected) + animalType[animal.animalType].acresPer > getPastureCapacity(selected)}
+                  disabled={getUsedPastureSpace(selected) +
+                    animalType[animal.animalType].acresPer >
+                    getPastureCapacity(selected)}
                   on:click={() => assignAnimal(selected, animal.id)}>
                   Assign
                 </button>
-                <button on:click={() => handleSlaughter(animal.id)}>Slaughter</button>
+                <button on:click={() => handleSlaughter(animal.id)}
+                  >Slaughter</button>
               </div>
             </div>
           {:else}
             <div class="no-animals">No unassigned animals</div>
           {/each}
+        </div>
+      {/if}
+
+      {#if selected.buildingType === "Farm Field"}
+        <div class="farm-management">
+          <h4>Farm Field Management</h4>
+
+          <div class="farm-info">
+            <strong>Total Farm Size:</strong>
+            {getTotalBuildingSize(selected).toFixed(2)} Acres<br />
+            <strong>On this tile:</strong>
+            {getBuildingSizeInArea(selected, area.areaID, $game).toFixed(2)} Acres
+          </div>
+
+          <h5>Field Rotation</h5>
+          <select
+            value={selected.fieldRotation?.type ?? ""}
+            on:change={(e) => {
+              const value = e.currentTarget.value;
+              if (value === "2-field" || value === "3-field") {
+                setFieldRotation(selected, value);
+              }
+            }}>
+            <option value="">None</option>
+            <option value="2-field"
+              >2-field (Grain→Fallow→Legumes→Grain)</option>
+            <option value="3-field">3-field (Grain→Legumes→Fallow)</option>
+          </select>
+
+          {#if selected.fieldRotation}
+            <div class="farm-info" style="margin-top: 0.5em;">
+              <strong>Current Crop:</strong>
+              {getRotationCycle(selected.fieldRotation)}<br />
+              <strong>Rotation Year:</strong>
+              {(selected.fieldRotation.currentYear %
+                (selected.fieldRotation.type === "2-field" ? 4 : 3)) +
+                1}
+              of {selected.fieldRotation.type === "2-field" ? 4 : 3}
+            </div>
+          {/if}
+
+          <h5>Planted Crops</h5>
+          <div class="farm-info">
+            <strong>Planted Grain:</strong>
+            {(selected.yields?.["Planted Grain"] ?? 0).toFixed(2)} Acres<br />
+            <strong>Planted Legumes:</strong>
+            {(selected.yields?.["Planted Legumes"] ?? 0).toFixed(2)} Acres<br />
+            <strong>Unsowed Land:</strong>
+            {(
+              getTotalBuildingSize(selected) -
+              (selected.yields?.["Planted Grain"] ?? 0) -
+              (selected.yields?.["Planted Legumes"] ?? 0)
+            ).toFixed(2)} Acres
+          </div>
+
+          <h5>Current Season</h5>
+          <div class="farm-info">
+            {$game.season}
+            {#if $game.season === "Spring"}
+              (Sowing)
+            {:else if $game.season === "Summer"}
+              (Growing)
+            {:else if $game.season === "Autumn"}
+              (Harvesting)
+            {:else}
+              (Winter)
+            {/if}
+          </div>
         </div>
       {/if}
     {/if}
@@ -890,5 +956,27 @@
     padding: 0.5em;
     font-style: italic;
     opacity: 0.7;
+  }
+
+  .farm-management {
+    margin-top: 1em;
+    padding: 0.5em;
+    border: 1px solid currentColor;
+  }
+
+  .farm-management h4 {
+    margin: 0 0 0.5em 0;
+    font-size: 1em;
+  }
+
+  .farm-management h5 {
+    margin: 1em 0 0.5em 0;
+    font-size: 0.9em;
+  }
+
+  .farm-info {
+    margin-bottom: 1em;
+    padding: 0.5em;
+    background: rgba(255, 255, 255, 0.05);
   }
 </style>

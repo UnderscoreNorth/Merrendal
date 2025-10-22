@@ -85,3 +85,16 @@ export const view = writable<View>({
 export const openModals = writable<Record<string, any>>({});
 export const mouseCood = writable<{ x: number; y: number }>({ x: 0, y: 0 });
 export const autoPlay = writable<boolean>(false);
+
+// Tile selection state for building expansions
+export type TileSelectionState = {
+  active: boolean;
+  sourceAreaId: string; // The area with the building being upgraded
+  buildingId: string; // The building being upgraded
+  upgradeName: string; // The upgrade being applied
+  eligibleTiles: Set<string>; // Set of area IDs that are eligible
+  onSelect: (areaId: string) => void; // Callback when a tile is selected
+  onCancel: () => void; // Callback when selection is cancelled
+} | null;
+
+export const tileSelection = writable<TileSelectionState>(null);

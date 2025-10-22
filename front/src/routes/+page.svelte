@@ -2,7 +2,7 @@
   import "./styles.css";
   import { init } from "$lib/init";
   import { loadGame } from "$lib/storage";
-  import { game, mouseCood, openModals } from "$lib/stores";
+  import { game, mouseCood, openModals, tileSelection } from "$lib/stores";
   import Collapsible from "$lib/ui/Collapsible.svelte";
   import Areas from "$lib/ui/Cards/Areas.svelte";
   import Logs from "$lib/ui/Cards/Logs.svelte";
@@ -16,6 +16,7 @@
   import SelectedCell from "$lib/ui/Modals/SelectedCell.svelte";
   import AreaDetail from "$lib/ui/Modals/AreaDetail.svelte";
   import StartingArea from "$lib/ui/Modals/StartingArea.svelte";
+  import TileSelectionModal from "$lib/ui/Modals/TileSelectionModal.svelte";
   import Debug from "$lib/ui/Cards/Debug.svelte";
 
   // Load from localStorage if available, otherwise initialize new game
@@ -43,6 +44,10 @@
     <Card draggable={true} padding={1} modal="areaDetail">
       <AreaDetail />
     </Card>
+    {#if $tileSelection?.active}
+      <Card draggable={true} padding={1}>
+        <TileSelectionModal />
+      </Card>{/if}
     {#if $game.areas.length == 0}
       <Card draggable={false} padding={1}>
         <StartingArea />

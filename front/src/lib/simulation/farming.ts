@@ -1,7 +1,9 @@
-import { type Area, type FieldRotationType } from "$lib/data/areas";
+import type { Area } from "$lib/data/areas";
 import type { Villager } from "$lib/data/living";
 import type { GameState } from "$lib/stores";
 import { v4 as uuidv4 } from "uuid";
+import type { Building, FieldRotationType } from "$lib/data/buildings";
+import { getTotalBuildingSize } from "./buildings";
 
 /**
  * Get what crop should be planted based on field rotation
@@ -42,17 +44,27 @@ function getCurrentCrop(
 }
 
 /**
- * Advance the rotation year (called once per year in winter)
+ * Advance the rotation year for a farm field (called once per year in winter)
  */
-export function advanceRotation(area: Area): void {
-  if (area.fieldRotation) {
-    area.fieldRotation.currentYear++;
+export function advanceRotation(farmField: Building): void {
+  if (farmField.fieldRotation) {
+    farmField.fieldRotation.currentYear++;
   }
 }
 
-export function sowing(gs: GameState, area: Area) {
+export function sowing(gs: GameState, farmField: Building) {
+  // Only process Farm Field buildings
+  if (farmField.buildingType !== "Farm Field") return;
+
+  // Get total size of the farm field (base + all upgrades)
+  const farmSize = getTotalBuildingSize(farmField);
+  if (farmSize <= 0) return;
+
+  // Initialize yields if not present
+  if (!farmField.yields) farmField.yields = {};
+
   // Check what should be planted based on rotation
-  const currentCrop = getCurrentCrop(area.fieldRotation);
+  const currentCrop = getCurrentCrop(farmField.fieldRotation);
 
   // If it's a fallow year, don't plant anything
   if (currentCrop === "fallow") {
@@ -63,7 +75,7 @@ export function sowing(gs: GameState, area: Area) {
   let availableFarmers: Villager[] = getIdleFarmers(gs);
 
   const cropKey = currentCrop === "grain" ? "Planted Grain" : "Planted Legumes";
-  let unsowedLand = area.arableLand - (area.yields[cropKey] ?? 0);
+  let unsowedLand = farmSize - (farmField.yields[cropKey] ?? 0);
 
   if (unsowedLand <= 0) return;
 
@@ -98,21 +110,24 @@ export function sowing(gs: GameState, area: Area) {
     }
   }
 
-  const acresSowed =
-    area.arableLand - unsowedLand - (area.yields[cropKey] ?? 0);
-  area.yields[cropKey] = (area.yields[cropKey] ?? 0) + acresSowed;
+  const acresSowed = farmSize - unsowedLand - (farmField.yields[cropKey] ?? 0);
+  farmField.yields[cropKey] = (farmField.yields[cropKey] ?? 0) + acresSowed;
 }
 
-export function growing(gs: GameState, area: Area) {
+export function growing(gs: GameState, farmField: Building) {
+  // Only process Farm Field buildings
+  if (farmField.buildingType !== "Farm Field") return;
+  if (!farmField.yields) return;
+
   // Get idle villagers for tending crops
   let availableFarmers: Villager[] = getIdleFarmers(gs);
 
   // Check what crop is planted
-  const currentCrop = getCurrentCrop(area.fieldRotation);
+  const currentCrop = getCurrentCrop(farmField.fieldRotation);
   if (currentCrop === "fallow") return;
 
   const cropKey = currentCrop === "grain" ? "Planted Grain" : "Planted Legumes";
-  let numAcres = area.yields[cropKey] ?? 0;
+  let numAcres = farmField.yields[cropKey] ?? 0;
 
   if (numAcres <= 0) return;
 
@@ -136,7 +151,7 @@ export function growing(gs: GameState, area: Area) {
   } else {
     // Not enough farmers, crops may be lost
     if (Math.random() > availableFarmers.length / farmersRequired) {
-      area.yields[cropKey] = (area.yields[cropKey] ?? 0) - 0.01;
+      farmField.yields[cropKey] = (farmField.yields[cropKey] ?? 0) - 0.01;
     }
 
     // Mark available farmers as working
@@ -146,18 +161,22 @@ export function growing(gs: GameState, area: Area) {
   }
 }
 
-export function harvesting(gs: GameState, area: Area) {
+export function harvesting(gs: GameState, farmField: Building) {
+  // Only process Farm Field buildings
+  if (farmField.buildingType !== "Farm Field") return;
+  if (!farmField.yields) return;
+
   // Get idle villagers for harvesting
   let availableFarmers: Villager[] = getIdleFarmers(gs);
 
   // Check what crop is planted
-  const currentCrop = getCurrentCrop(area.fieldRotation);
+  const currentCrop = getCurrentCrop(farmField.fieldRotation);
   if (currentCrop === "fallow") return;
 
   const cropKey = currentCrop === "grain" ? "Planted Grain" : "Planted Legumes";
   const harvestKey = currentCrop === "grain" ? "Grain" : "Legumes";
 
-  let remainingAcres = area.yields[cropKey] ?? 0;
+  let remainingAcres = farmField.yields[cropKey] ?? 0;
 
   if (remainingAcres <= 0) return;
 
@@ -188,7 +207,7 @@ export function harvesting(gs: GameState, area: Area) {
   }
 
   // Reduce planted crop by harvested amount
-  area.yields[cropKey] = remainingAcres;
+  farmField.yields[cropKey] = remainingAcres;
 
   // Add harvest to inventory
   gs.inventory[harvestKey] = (gs.inventory[harvestKey] ?? 0) + bushelsHarvested;
@@ -262,40 +281,57 @@ function getIdleFarmers(gs: GameState): Villager[] {
     });
 }
 
+/**
+ * Get all Farm Field buildings from all areas
+ */
+function getAllFarmFields(gs: GameState): Building[] {
+  const farmFields: Building[] = [];
+  for (const area of gs.areas) {
+    for (const building of area.buildings) {
+      if (building.buildingType === "Farm Field" && building.status === "built") {
+        farmFields.push(building);
+      }
+    }
+  }
+  return farmFields;
+}
+
 export function doFarming(gs: GameState) {
   // Process farming based on season
+  const farmFields = getAllFarmFields(gs);
+
   if (gs.season === "Spring") {
     // Sowing in spring
-    for (const area of gs.areas) {
-      if (area.arableLand > 0) {
-        sowing(gs, area);
+    for (const farmField of farmFields) {
+      if (getTotalBuildingSize(farmField) > 0) {
+        sowing(gs, farmField);
       }
     }
   } else if (gs.season === "Summer") {
     // Growing/tending in summer
-    for (const area of gs.areas) {
+    for (const farmField of farmFields) {
       if (
-        (area.yields["Planted Grain"] ?? 0) > 0 ||
-        (area.yields["Planted Legumes"] ?? 0) > 0
+        ((farmField.yields?.["Planted Grain"] ?? 0) > 0 ||
+        (farmField.yields?.["Planted Legumes"] ?? 0) > 0)
       ) {
-        growing(gs, area);
+        growing(gs, farmField);
       }
     }
   } else if (gs.season === "Autumn") {
     // Harvesting in autumn
-    for (const area of gs.areas) {
+    for (const farmField of farmFields) {
       if (
-        (area.yields["Planted Grain"] ?? 0) > 0 ||
-        (area.yields["Planted Legumes"] ?? 0) > 0
+        ((farmField.yields?.["Planted Grain"] ?? 0) > 0 ||
+        (farmField.yields?.["Planted Legumes"] ?? 0) > 0)
       ) {
-        harvesting(gs, area);
+        harvesting(gs, farmField);
       }
     }
   } else if (gs.season === "Winter" && gs.currentDay === 1) {
     // Advance rotation at the start of winter (end of farming year)
-    for (const area of gs.areas) {
-      if (area.arableLand > 0) {
-        advanceRotation(area);
+    for (const farmField of farmFields) {
+      if (getTotalBuildingSize(farmField) > 0) {
+        advanceRotation(farmField);
       }
     }
   }

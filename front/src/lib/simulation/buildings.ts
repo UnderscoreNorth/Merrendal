@@ -25,18 +25,84 @@ export function getAllProjects(gs: GameState) {
 }
 
 /**
+ * Calculate total size of a building including all its upgrades
+ */
+export function getTotalBuildingSize(building: Building): number {
+  const template = buildingTypes[building.buildingType];
+  let totalSize = template.size;
+  // Add sizes from all built upgrades
+  for (const [upgradeName, upgradeStatus] of Object.entries(
+    building.upgrades,
+  )) {
+    if (upgradeStatus.status === "built") {
+      // @ts-ignore - Dynamic upgrade lookup
+      const upgradeData = template.upgrades[upgradeName] as Upgrade | undefined;
+      if (upgradeData && upgradeData.size) {
+        totalSize += upgradeData.size;
+      }
+    }
+  }
+
+  return totalSize;
+}
+
+/**
+ * Calculate how much of a building's size is in a specific area
+ */
+export function getBuildingSizeInArea(
+  building: Building,
+  areaId: string,
+  gs: GameState,
+): number {
+  const template = buildingTypes[building.buildingType];
+
+  // Find which area the building is in
+  const buildingArea = gs.areas.find((a) =>
+    a.buildings.some((b) => b.id === building.id),
+  );
+  if (!buildingArea) return 0;
+
+  // Base size is in the building's main area
+  let sizeInArea = buildingArea.areaID === areaId ? template.size : 0;
+  // Add upgrade sizes based on their targetArea
+  for (const [upgradeName, upgradeStatus] of Object.entries(
+    building.upgrades,
+  )) {
+    if (upgradeStatus.status === "built") {
+      // @ts-ignore - Dynamic upgrade lookup
+      const upgradeData = template.upgrades[upgradeName] as Upgrade | undefined;
+      if (upgradeData && upgradeData.size) {
+        // If upgrade has a targetArea, size goes there; otherwise it's in the main area
+        const upgradeAreaId = upgradeStatus.targetArea ?? buildingArea.areaID;
+        if (upgradeAreaId === areaId) {
+          sizeInArea += upgradeData.size;
+        }
+      }
+    }
+  }
+
+  return sizeInArea;
+}
+
+/**
  * Calculate the total cost of a building based on its requirements
  */
 function calculateBuildingCost(buildingType: BuildingType): number {
   const template = buildingTypes[buildingType];
-  return Object.values(template.requirements).reduce((sum, val) => sum + val, 0);
+  return Object.values(template.requirements).reduce(
+    (sum, val) => sum + val,
+    0,
+  );
 }
 
 /**
  * Calculate the total maintenance cost accumulated for a building
  */
 function getTotalMaintenanceCost(maintenanceCost: ItemRecord): number {
-  return Object.values(maintenanceCost).reduce((sum: number, val) => sum + (val ?? 0), 0);
+  return Object.values(maintenanceCost).reduce(
+    (sum: number, val) => sum + (val ?? 0),
+    0,
+  );
 }
 
 /**
@@ -142,7 +208,18 @@ export function doConstruction(gs: GameState) {
             // Remove from currentProjects
             area.currentProjects.splice(i, 1);
             // Add 1 acre of arable land
-            area.arableLand += 1;
+            area.arableLand -= 1;
+            const buildingUpgrades =
+              buildingTypes[project.building.buildingType].upgrades;
+            const upgradeKey = project.upgrade as string;
+            const upgradeData = buildingUpgrades[
+              upgradeKey as keyof typeof buildingUpgrades
+            ] as Upgrade | undefined;
+            project.building.upgrades[project.upgrade] = {
+              status: "built",
+              maintenanceCost: upgradeData?.maintenance?.cost ?? {},
+              targetArea: project.targetArea, // Include targetArea if it exists
+            };
           }
           continue;
         }
@@ -278,7 +355,6 @@ export function doConstruction(gs: GameState) {
         if (isComplete) {
           // Remove from currentProjects
           area.currentProjects.splice(i, 1);
-
           if (project.type === "construction") {
             // Add building to area
             project.building.built = {
@@ -296,31 +372,28 @@ export function doConstruction(gs: GameState) {
               upgradeKey as keyof typeof buildingUpgrades
             ] as Upgrade | undefined;
 
-            // Handle special upgrade: Convert to Arable Land
-            if (
-              project.upgrade === "Convert to Arable Land" &&
-              project.building.buildingType === "Farm Field"
-            ) {
-              // Add 1 acre of arable land to the area
-              area.arableLand += 1;
-              // Don't mark as built for repeatable upgrades
-            } else {
-              project.building.upgrades[project.upgrade] = {
-                status: "built",
-                maintenanceCost: upgradeData?.maintenance?.cost ?? {},
-              };
+            // Mark upgrade as built
+            project.building.upgrades[project.upgrade] = {
+              status: "built",
+              maintenanceCost: upgradeData?.maintenance?.cost ?? {},
+              targetArea: project.targetArea, // Include targetArea if it exists
+            };
+            console.log(project.building);
+            // Add upgrade size to building land if the upgrade has a size
+            if (upgradeData?.size) {
+              // Find the target area if specified, otherwise use current area
+              const targetArea = project.targetArea
+                ? (gs.areas.find((a) => a.areaID === project.targetArea) ??
+                  area)
+                : area;
+              targetArea.buildingLand += upgradeData.size;
+            }
 
-              // Add upgrade size to building land if the upgrade has a size
-              if (upgradeData?.size) {
-                area.buildingLand += upgradeData.size;
-              }
-
-              // Add upgrade recipes to building's allowedRecipes if they exist
-              if (upgradeData?.allowedRecipes) {
-                for (const recipe of upgradeData.allowedRecipes) {
-                  if (!project.building.allowedRecipes.includes(recipe)) {
-                    project.building.allowedRecipes.push(recipe);
-                  }
+            // Add upgrade recipes to building's allowedRecipes if they exist
+            if (upgradeData?.allowedRecipes) {
+              for (const recipe of upgradeData.allowedRecipes) {
+                if (!project.building.allowedRecipes.includes(recipe)) {
+                  project.building.allowedRecipes.push(recipe);
                 }
               }
             }
@@ -378,13 +451,16 @@ export function doConstruction(gs: GameState) {
               buildingTypes[project.building.buildingType].size;
 
             // Also reduce building land by upgrade sizes
-            const buildingTemplate = buildingTypes[project.building.buildingType];
+            const buildingTemplate =
+              buildingTypes[project.building.buildingType];
             for (const [upgradeName, upgradeStatus] of Object.entries(
               project.building.upgrades,
             )) {
               if (upgradeStatus.status === "built") {
                 //@ts-ignore - Dynamic upgrade lookup
-                const upgradeData = buildingTemplate.upgrades[upgradeName] as Upgrade | undefined;
+                const upgradeData = buildingTemplate.upgrades[upgradeName] as
+                  | Upgrade
+                  | undefined;
                 if (upgradeData?.size) {
                   area.buildingLand -= upgradeData.size;
                 }
@@ -425,6 +501,11 @@ export function startConstruction(
   };
   if ("occupationTitle" in template)
     building.occupationTitle = template.occupationTitle;
+
+  // Initialize Farm Fields with yields tracking
+  if (buildingType === "Farm Field") {
+    building.yields = {};
+  }
   if (spawn || Object.keys(template.requirements).length == 0) {
     completeBuilding(gs, area, building);
   } else {
@@ -516,11 +597,15 @@ export function maintenance(gs: GameState) {
       }
 
       // Cap maintenance cost at building cost
-      const totalMaintenance = getTotalMaintenanceCost(building.maintenanceCost);
+      const totalMaintenance = getTotalMaintenanceCost(
+        building.maintenanceCost,
+      );
       if (totalMaintenance > buildingCost) {
         // Scale down all maintenance costs proportionally
         const scale = buildingCost / totalMaintenance;
-        for (const [itemName, cost] of Object.entries(building.maintenanceCost)) {
+        for (const [itemName, cost] of Object.entries(
+          building.maintenanceCost,
+        )) {
           if (cost !== undefined) {
             //@ts-ignore
             building.maintenanceCost[itemName] = cost * scale;
@@ -648,7 +733,9 @@ export function maintenance(gs: GameState) {
 
             // Check if building is fully repaired (rebuilt)
             if (building.status === "ruined") {
-              const totalMaintenance = getTotalMaintenanceCost(building.maintenanceCost);
+              const totalMaintenance = getTotalMaintenanceCost(
+                building.maintenanceCost,
+              );
               if (totalMaintenance <= 0) {
                 building.status = "built";
                 gs.log.push({
@@ -689,6 +776,7 @@ export function startUpgrade(
   area: Area,
   building: Building,
   upgradeType: UpgradeType,
+  sourceAreaId?: string,
 ) {
   const buildingUpgrades = buildingTypes[building.buildingType].upgrades;
   if (upgradeType in buildingUpgrades) {
@@ -697,6 +785,7 @@ export function startUpgrade(
       building,
       upgrade: upgradeType,
       progress: {},
+      targetArea: sourceAreaId !== undefined ? area.areaID : undefined,
       id: uuidv4(),
       priority: 5,
     });

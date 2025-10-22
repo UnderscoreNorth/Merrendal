@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import * as PIXI from "pixi.js";
   import { BloomFilter } from "pixi-filters";
-  import { game, map, openModals, view } from "$lib/stores";
+  import { game, map, openModals, view, tileSelection } from "$lib/stores";
   import type { TerrainTile } from "$lib/map/generation";
   import { fromCube } from "$lib/util/terrainHelpers";
   import { drawTrees, getTreePositions, type TreeCoord } from "./drawTrees";
@@ -41,15 +41,30 @@
   let seed = "";
   /**
    * Open area detail modal or starting area modal
+   * If in tile selection mode, handle tile selection instead
    */
   function openArea(q: number, r: number, s: number) {
+    const areaId = fromCube({ q, r, s });
+
+    // If in tile selection mode, handle tile selection
+    if ($tileSelection?.active) {
+      const area = $game.areas.find(
+        (a) => a.loc.q === q && a.loc.r === r && a.loc.s === s,
+      );
+      if (area && $tileSelection.eligibleTiles.has(area.areaID)) {
+        $tileSelection.onSelect(area.areaID);
+      }
+      return;
+    }
+
+    // Normal behavior: open modals
     const area = $game.areas.find(
       (a) => a.loc.q === q && a.loc.r === r && a.loc.s === s,
     );
     if (area !== undefined) {
       $openModals["areaDetail"] = area;
     } else if ($game.map !== undefined) {
-      const newArea = $game.map.tiles[fromCube({ q, r, s })];
+      const newArea = $game.map.tiles[areaId];
       if (newArea.terrain.topography === "Plains") {
         $openModals["startingArea"] = newArea;
       }
@@ -117,6 +132,24 @@
     data.container.position.set(x, y);
     data.container.zIndex = layer;
 
+    // Apply greying out for tile selection mode
+    const area = $game.areas.find((i) => fromCube(i.loc) === tileKey);
+    if ($tileSelection?.active) {
+      if (area && $tileSelection.eligibleTiles.has(area.areaID)) {
+        // Eligible tile - normal brightness
+        data.tile.tint = calculateTileBrightness(cell);
+        data.container.alpha = 1;
+      } else {
+        // Ineligible tile - grey out
+        data.container.tint = 0x444444;
+      }
+    } else {
+      // Normal mode - restore normal tint and alpha
+      data.tile.tint = calculateTileBrightness(cell);
+      data.container.alpha = 1;
+      data.container.tint = 0xffffff;
+    }
+
     // Draw rivers and roads
     if (cell.terrain.river || cell.terrain.road) {
       if (data.riverRoad) {
@@ -130,8 +163,6 @@
       }
     }
 
-    // Draw trees
-    const area = $game.areas.find((i) => fromCube(i.loc) === tileKey);
     drawTrees(
       treeSprites,
       mapSprites,
@@ -259,6 +290,13 @@
     const unsubView = view.subscribe(() => {
       updateCamera();
     });
+
+    const unsubTileSelection = tileSelection.subscribe(() => {
+      // Re-render map when tile selection mode changes
+      isMapBuilt = false;
+      buildMap();
+    });
+
     /*setInterval(() => {
       console.log($view, window.innerWidth, window.innerHeight, {
         minX,
@@ -272,6 +310,7 @@
       unsubGame();
       unsubMap();
       unsubView();
+      unsubTileSelection();
     };
   });
 

@@ -59,7 +59,7 @@ export class TerrainTile implements Area {
       road: "",
     };
     ((this.yields = {}), (this.currentProjects = []));
-    this.arableLand = 0;
+    this.arableLand = 4; // Max land that can be converted to farm/pasture
     this.buildingLand = 0;
     this.yieldEff = {};
     this.buildings = [];
