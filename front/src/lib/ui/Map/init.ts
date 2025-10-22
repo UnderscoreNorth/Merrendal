@@ -19,9 +19,7 @@ export async function loadTilesheet() {
     "mountain medium": await loadAsset("Hex - Mountains, medium (lush)"),
     sand: await loadAsset("Hex - Plains (desert) 5"),
   };
-  const baseBuildings = await PIXI.Assets.load(
-    `/icons/buildings/buildings.png`,
-  );
+  const baseBuildings = await PIXI.Assets.load(`icons/buildings/buildings.png`);
   const buildingSheet: Record<string, PIXI.Texture> = {};
   for (const [building, data] of recordLoop(buildingTypes)) {
     buildingSheet[building] = new PIXI.Texture({
