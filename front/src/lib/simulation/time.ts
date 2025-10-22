@@ -1,5 +1,6 @@
 import { type GameState } from "$lib/stores";
-import { processBirths, processOldAgeDeaths } from "./mortality";
+import { processBirths, processMarriages, processOldAgeDeaths } from "./mortality";
+import { processAnimalBreeding, processAnimalOldAgeDeaths } from "./animals";
 
 export function advanceTime(gs: GameState) {
   if (gs.currentPeriod === "Morning") {
@@ -15,6 +16,9 @@ export function advanceTime(gs: GameState) {
     if (gs.currentDay > 365) {
       gs.currentDay = 1;
       gs.currentYear++;
+
+      // Process animal breeding once per year at year change
+      processAnimalBreeding(gs);
     }
 
     processSeasons();
@@ -26,7 +30,16 @@ export function advanceTime(gs: GameState) {
       }
     }
 
+    // Age animals on their birthday
+    for (const animal of gs.animals) {
+      if (animal.birthday === gs.currentDay) {
+        animal.age++;
+      }
+    }
+
+    processAnimalOldAgeDeaths(gs);
     processOldAgeDeaths(gs);
+    processMarriages(gs); // Process marriages after aging
     processBirths(gs);
   }
   gs.areaActionTaken = false;

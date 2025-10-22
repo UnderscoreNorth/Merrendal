@@ -1,6 +1,7 @@
 <script lang="ts">
   import "./styles.css";
   import { init } from "$lib/init";
+  import { loadGame } from "$lib/storage";
   import { game, mouseCood, openModals } from "$lib/stores";
   import Collapsible from "$lib/ui/Collapsible.svelte";
   import Areas from "$lib/ui/Cards/Areas.svelte";
@@ -16,7 +17,12 @@
   import AreaDetail from "$lib/ui/Modals/AreaDetail.svelte";
   import StartingArea from "$lib/ui/Modals/StartingArea.svelte";
   import Debug from "$lib/ui/Cards/Debug.svelte";
-  init();
+
+  // Load from localStorage if available, otherwise initialize new game
+  const loaded = loadGame();
+  if (!loaded) {
+    init();
+  }
 </script>
 
 <svelte:head><title>Legacy of Merrendal</title></svelte:head>

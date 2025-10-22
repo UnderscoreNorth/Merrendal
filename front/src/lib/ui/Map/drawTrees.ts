@@ -20,6 +20,7 @@ export function drawTrees(
   fullTrees: PIXI.Texture[],
   cell: TerrainTile,
   u: number,
+  treeOpacity: number,
 ) {
   const key = fromCube(cell.loc);
   const availablePositions = treeSprites[key];
@@ -85,6 +86,7 @@ export function drawTrees(
         typeof pos.var == "number"
           ? fullTrees[pos.var]
           : buildingSheet[pos.var];
+      if (pos.curr !== "tree") console.log(pos.var, texture);
       const treeSprite = new PIXI.Sprite(texture);
       treeSprite.anchor.set(0.5, 0.8); // Anchor at bottom center of tree
 
@@ -102,6 +104,7 @@ export function drawTrees(
         treeSprite.position.set(0, 1);
         treeSprite.scale.set(u / 400, u / 400);
       }
+      if (pos.curr == "tree") treeSprite.alpha = treeOpacity / 100;
       // Add some random brightness variation
       let brightness = 1;
       if (typeof pos.var == "number") brightness = 0.9 + (pos.var % 10) * 0.01;
@@ -110,6 +113,8 @@ export function drawTrees(
       data.container.addChild(treeSprite);
       data.trees[index] = treeSprite;
       treeSprite.zIndex = pos.y + 10;
+    } else if (pos.curr == "tree") {
+      data.trees[index].alpha = treeOpacity / 100;
     }
   });
 

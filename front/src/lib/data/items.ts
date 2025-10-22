@@ -207,6 +207,10 @@ export const items = {
     unit: "Unit",
     category: ["Crops"],
   },
+  "Planted Legumes": {
+    unit: "Unit",
+    category: ["Crops"],
+  },
   "Fired Clay": {
     unit: "Lb",
     category: ["Good"],

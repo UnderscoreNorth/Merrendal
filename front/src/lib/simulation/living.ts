@@ -24,6 +24,11 @@ export function assignNPCs(gs: GameState, target: Building, num: number) {
   let stuck = false;
   let targetArea: any = null;
 
+  // Don't assign workers to ruined buildings
+  if (target.status === "ruined") {
+    return 0;
+  }
+
   // Find which area this target belongs to
   if ("occupationTitle" in target) {
     // It's a building - find the area containing it

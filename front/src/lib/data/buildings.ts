@@ -55,6 +55,7 @@ export type Upgrade = {
     cost: ItemRecord;
   };
   allowedRecipes?: ItemName[];
+  size?: number;
 };
 export type BuildingType = keyof typeof buildingTypes;
 export type UpgradeType = {
@@ -443,10 +444,22 @@ export const buildingTypes = {
     },
     size: 0,
   },
+  "Village Square": {
+    requirements: {},
+    maxPops: 0,
+    upgrades: {},
+    category: "Infrastructure",
+    icon: {
+      x: 7,
+      y: 2,
+    },
+    size: 1,
+    allowedRecipes: [],
+  },
   Burgage: {
     requirements: { Lumber: 5000 },
     maxPops: 2,
-    allowedRecipes: ["Vegetables", "Porridge"],
+    allowedRecipes: ["Vegetables", "Porridge", "Cheese"],
     liveIn: true,
     upgrades: {
       "Stone Walls": {
@@ -599,6 +612,22 @@ export const buildingTypes = {
     category: "Food",
     allowedRecipes: [],
     size: 0,
+    icon: { x: 6, y: 2 },
+  },
+  Pasture: {
+    maxPops: 1,
+    requirements: { Lumber: 2000 },
+    upgrades: {
+      "Expand Pasture": {
+        repeatable: true,
+        requirements: { Lumber: 2000 },
+        size: 1,
+      },
+    },
+    occupationTitle: "Rancher",
+    category: "Food",
+    allowedRecipes: [],
+    size: 1,
     icon: { x: 6, y: 2 },
   },
 } as const satisfies Record<string, BuildingTemplate>;

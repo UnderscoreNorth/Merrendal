@@ -1,12 +1,69 @@
-import { type Area } from "$lib/data/areas";
+import { type Area, type FieldRotationType } from "$lib/data/areas";
 import type { Villager } from "$lib/data/living";
 import type { GameState } from "$lib/stores";
 import { v4 as uuidv4 } from "uuid";
 
+/**
+ * Get what crop should be planted based on field rotation
+ * 2-field: grain -> fallow -> legumes -> grain (4 year cycle)
+ * 3-field: grain -> legumes -> fallow (3 year cycle)
+ */
+function getCurrentCrop(
+  rotation: { type: FieldRotationType; currentYear: number } | undefined,
+): "grain" | "legumes" | "fallow" {
+  if (!rotation) return "grain"; // Default to grain if no rotation set
+
+  if (rotation.type === "2-field") {
+    // 4 year cycle: grain (0) -> fallow (1) -> legumes (2) -> grain (3)
+    switch (rotation.currentYear % 4) {
+      case 0:
+        return "grain";
+      case 1:
+      case 3:
+        return "fallow";
+      case 2:
+        return "legumes";
+      default:
+        return "grain";
+    }
+  } else {
+    // 3-field rotation: 3 year cycle: grain (0) -> legumes (1) -> fallow (2)
+    switch (rotation.currentYear % 3) {
+      case 0:
+        return "grain";
+      case 1:
+        return "legumes";
+      case 2:
+        return "fallow";
+      default:
+        return "grain";
+    }
+  }
+}
+
+/**
+ * Advance the rotation year (called once per year in winter)
+ */
+export function advanceRotation(area: Area): void {
+  if (area.fieldRotation) {
+    area.fieldRotation.currentYear++;
+  }
+}
+
 export function sowing(gs: GameState, area: Area) {
+  // Check what should be planted based on rotation
+  const currentCrop = getCurrentCrop(area.fieldRotation);
+
+  // If it's a fallow year, don't plant anything
+  if (currentCrop === "fallow") {
+    return;
+  }
+
   // Get idle villagers (not already assigned work today)
   let availableFarmers: Villager[] = getIdleFarmers(gs);
-  let unsowedLand = area.arableLand - (area.yields["Planted Grain"] ?? 0);
+
+  const cropKey = currentCrop === "grain" ? "Planted Grain" : "Planted Legumes";
+  let unsowedLand = area.arableLand - (area.yields[cropKey] ?? 0);
 
   if (unsowedLand <= 0) return;
 
@@ -41,14 +98,21 @@ export function sowing(gs: GameState, area: Area) {
     }
   }
 
-  const acresSowed = area.arableLand - unsowedLand - (area.yields["Planted Grain"] ?? 0);
-  area.yields["Planted Grain"] = (area.yields["Planted Grain"] ?? 0) + acresSowed;
+  const acresSowed =
+    area.arableLand - unsowedLand - (area.yields[cropKey] ?? 0);
+  area.yields[cropKey] = (area.yields[cropKey] ?? 0) + acresSowed;
 }
 
 export function growing(gs: GameState, area: Area) {
   // Get idle villagers for tending crops
   let availableFarmers: Villager[] = getIdleFarmers(gs);
-  let numAcres = area.yields["Planted Grain"] ?? 0;
+
+  // Check what crop is planted
+  const currentCrop = getCurrentCrop(area.fieldRotation);
+  if (currentCrop === "fallow") return;
+
+  const cropKey = currentCrop === "grain" ? "Planted Grain" : "Planted Legumes";
+  let numAcres = area.yields[cropKey] ?? 0;
 
   if (numAcres <= 0) return;
 
@@ -63,7 +127,8 @@ export function growing(gs: GameState, area: Area) {
 
         // Skill up chance
         if (Math.random() > 0.8) {
-          if (!availableFarmers[i].skills["Farmer"]) availableFarmers[i].skills["Farmer"] = 0;
+          if (!availableFarmers[i].skills["Farmer"])
+            availableFarmers[i].skills["Farmer"] = 0;
           availableFarmers[i].skills["Farmer"] += 0.05;
         }
       }
@@ -71,7 +136,7 @@ export function growing(gs: GameState, area: Area) {
   } else {
     // Not enough farmers, crops may be lost
     if (Math.random() > availableFarmers.length / farmersRequired) {
-      area.yields["Planted Grain"] = (area.yields["Planted Grain"] ?? 0) - 0.01;
+      area.yields[cropKey] = (area.yields[cropKey] ?? 0) - 0.01;
     }
 
     // Mark available farmers as working
@@ -84,7 +149,15 @@ export function growing(gs: GameState, area: Area) {
 export function harvesting(gs: GameState, area: Area) {
   // Get idle villagers for harvesting
   let availableFarmers: Villager[] = getIdleFarmers(gs);
-  let remainingAcres = area.yields["Planted Grain"] ?? 0;
+
+  // Check what crop is planted
+  const currentCrop = getCurrentCrop(area.fieldRotation);
+  if (currentCrop === "fallow") return;
+
+  const cropKey = currentCrop === "grain" ? "Planted Grain" : "Planted Legumes";
+  const harvestKey = currentCrop === "grain" ? "Grain" : "Legumes";
+
+  let remainingAcres = area.yields[cropKey] ?? 0;
 
   if (remainingAcres <= 0) return;
 
@@ -99,7 +172,10 @@ export function harvesting(gs: GameState, area: Area) {
 
     let acresHarvested = Math.min(0.5, remainingAcres);
     remainingAcres -= acresHarvested;
-    bushelsHarvested += acresHarvested * 6 * multiplier;
+
+    // Legumes yield slightly less than grain
+    const yieldPerAcre = currentCrop === "grain" ? 6 : 5;
+    bushelsHarvested += acresHarvested * yieldPerAcre * multiplier;
 
     // Mark farmer as having worked
     gs.dailyWorkerActivity.add(farmer.id);
@@ -111,11 +187,11 @@ export function harvesting(gs: GameState, area: Area) {
     }
   }
 
-  // Reduce planted grain by harvested amount
-  area.yields["Planted Grain"] = remainingAcres;
+  // Reduce planted crop by harvested amount
+  area.yields[cropKey] = remainingAcres;
 
-  // Add grain to inventory
-  gs.inventory.Grain = (gs.inventory.Grain ?? 0) + bushelsHarvested;
+  // Add harvest to inventory
+  gs.inventory[harvestKey] = (gs.inventory[harvestKey] ?? 0) + bushelsHarvested;
 }
 
 export function startLandConversion(area: Area, targetAcres: number = 1) {
@@ -198,17 +274,29 @@ export function doFarming(gs: GameState) {
   } else if (gs.season === "Summer") {
     // Growing/tending in summer
     for (const area of gs.areas) {
-      if ((area.yields["Planted Grain"] ?? 0) > 0) {
+      if (
+        (area.yields["Planted Grain"] ?? 0) > 0 ||
+        (area.yields["Planted Legumes"] ?? 0) > 0
+      ) {
         growing(gs, area);
       }
     }
   } else if (gs.season === "Autumn") {
     // Harvesting in autumn
     for (const area of gs.areas) {
-      if ((area.yields["Planted Grain"] ?? 0) > 0) {
+      if (
+        (area.yields["Planted Grain"] ?? 0) > 0 ||
+        (area.yields["Planted Legumes"] ?? 0) > 0
+      ) {
         harvesting(gs, area);
       }
     }
+  } else if (gs.season === "Winter" && gs.currentDay === 1) {
+    // Advance rotation at the start of winter (end of farming year)
+    for (const area of gs.areas) {
+      if (area.arableLand > 0) {
+        advanceRotation(area);
+      }
+    }
   }
-  // No farming work in winter
 }

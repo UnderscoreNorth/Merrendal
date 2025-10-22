@@ -2,6 +2,8 @@ import type { Cube } from "$lib/map/generation";
 import type { Building, UpgradeType } from "./buildings";
 import type { ItemRecord } from "./items";
 
+export type FieldRotationType = "2-field" | "3-field";
+
 export type Area = {
   areaID: string;
   acres: number;
@@ -20,6 +22,10 @@ export type Area = {
   };
   groupID: string;
   yields: ItemRecord;
+  fieldRotation?: {
+    type: FieldRotationType;
+    currentYear: number; // 0, 1, 2, or 3 for tracking position in rotation
+  };
 };
 
 export type ProjectType = { id: string; priority: number } & (

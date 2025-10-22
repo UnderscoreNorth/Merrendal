@@ -12,6 +12,8 @@ import {
   toCube,
 } from "../util/terrainHelpers";
 
+import { v4 as uuidv4 } from "uuid";
+
 export type Cube = {
   q: number;
   s: number;
@@ -89,6 +91,8 @@ export class Map {
   lakes: Record<string, Array<string>>;
   ranges: Record<string, Array<string>>;
   ocean: Array<string>;
+  start: TerrainTile;
+  private path: TerrainTile[];
   constructor(diameter: number, islandNames: string[]) {
     this.tiles = {};
     this.diameter = diameter;
@@ -99,7 +103,7 @@ export class Map {
     this.ranges = {};
     this.ocean = [];
     this.center = { q: 0, s: 0, r: 0 };
-
+    this.path = [];
     //Init gen - optimized to reduce fromCube calls
     for (let q = -diameter; q <= diameter; q++) {
       for (let s = -diameter; s <= diameter; s++) {
@@ -137,7 +141,6 @@ export class Map {
         mountain = true;
         MountainChance += 0.2;
         let rangeLength = rollRange(6, Math.floor(this.diameter * 1.75));
-        console.log({ rangeLength });
         if (rangeLength <= 5) {
           let MountainHeight = rollRange(16, 20);
           this.lifted = [];
@@ -203,15 +206,6 @@ export class Map {
           this.Water.push(tile.loc);
         }
       }
-      console.log(
-        "Land %: " +
-          Math.round(
-            (numLand /
-              ((3 * Math.pow(this.diameter, 2) - 3 * this.diameter + 1) /
-                minLand)) *
-              100,
-          ),
-      );
     } while (
       numLand <
         (3 * Math.pow(this.diameter, 2) - 3 * this.diameter + 1) / minLand &&
@@ -271,7 +265,6 @@ export class Map {
         }
       }
     }
-
     //Smoothing of cliffs
     for (const tile of Object.values(this.tiles)) {
       let elevation = tile.terrain.elevation;
@@ -312,6 +305,16 @@ export class Map {
         numLand++;
       } else {
         this.Water.push(tile.loc);
+      }
+    }
+    let lowestTile: TerrainTile = sortedSides[0][1][0];
+    for (const tile of this.getRing(0, 0, 0, diameter)) {
+      if (tile == undefined || tile.terrain.elevation < 0) continue;
+      if (
+        tile.terrain.elevation < lowestTile.terrain.elevation ||
+        lowestTile.terrain.elevation < 0
+      ) {
+        lowestTile = tile;
       }
     }
     //River generation
@@ -399,8 +402,8 @@ export class Map {
     console.log("Num of land tiles ", this.land.length);
     console.log("Num of plains ", numPlains);
     const ungroupedSet = new Set<string>();
-    for (let i = 0; i < this.land.length; i++) {
-      ungroupedSet.add(fromCube(this.land[i]));
+    for (const qsr in this.tiles) {
+      if (this.tiles[qsr].terrain.topography !== "Water") ungroupedSet.add(qsr);
     }
     const ungroupedArray = Array.from(ungroupedSet);
     shuffle(ungroupedArray);
@@ -489,6 +492,7 @@ export class Map {
         this.islands[tile.groupID].push(qsr);
       }
     }
+    islandNames = ["Merrendal"];
     shuffle(islandNames);
     let islands: Array<{ s: number; name: string }> = [];
     for (let name in this.islands) {
@@ -650,13 +654,193 @@ export class Map {
       //console.log("Forest " + attempt);
       let cood = this.getRandomLandPoint("Plains");
       this.spreadTree(cood, 1, -1);
-    } while (this.lifted.length < numPlains * 0.75);
+    } while (this.lifted.length < numPlains * 0.75 && attempts < 100);
     //console.log("Forests generated");
 
     const tilesToEvaluate = Object.keys(this.tiles);
     for (let idx = 0; idx < tilesToEvaluate.length; idx++) {
       this.tiles[tilesToEvaluate[idx]].yield = Math.random();
     }
+    let startIsland = lowestTile.groupID;
+    this.start = this.tiles[this.islands["Merrendal"][0]];
+    let candidates: Array<{ tile: TerrainTile; distance: number }> = [];
+    for (const qsr of Object.keys(this.tiles)) {
+      const tile = this.tiles[qsr];
+      if (tile.terrain.forested > 0) continue;
+      if (tile.terrain.elevation >= 10) continue;
+      let forested = 0;
+      let rivers = 0;
+      let plains = 0;
+      for (let i = 1; i <= 4; i++) {
+        for (const oTile of this.getRing(
+          tile.loc.q,
+          tile.loc.s,
+          tile.loc.r,
+          i,
+        )) {
+          if (oTile.terrain.topography == "Water") continue;
+          if (oTile.terrain.elevation >= 10) continue;
+          if (oTile.terrain.river !== "") rivers++;
+          if (i > 2) continue;
+          forested += oTile.terrain.forested;
+          if (i > 1) continue;
+          if (
+            oTile.terrain.forested == 0 &&
+            Math.abs(tile.terrain.elevation - oTile.terrain.elevation) < 2
+          )
+            plains++;
+        }
+      }
+
+      let distance = this.getDistance(tile.loc, lowestTile.loc);
+      if (forested > 500 && rivers > 0 && plains >= 2 && distance > 5) {
+        candidates.push({
+          tile,
+          distance: distance,
+        });
+      }
+    }
+    candidates = candidates.sort((a, b) => a.distance - b.distance);
+    if (candidates.length) this.start = candidates[0].tile;
+    console.log("Starting spot candidates:", candidates.length);
+    let prevTile = lowestTile;
+    let tiles = this.getTilesBetween(lowestTile.loc, this.start.loc);
+    tiles.unshift(lowestTile);
+    this.path = this.pathFindOptimizedWithPQ(lowestTile.loc, this.start.loc);
+    //this.pathFind(lowestTile.loc, this.start.loc, []);
+    for (const tile of this.path) {
+      for (let i = 0; i < 6; i++) {
+        let coords = direction(toCube(fromCube(tile.loc)), i);
+        const oTile = this.tiles[fromCube(coords)];
+        if (oTile == undefined) continue;
+        if (oTile.areaID == prevTile.areaID) {
+          prevTile.terrain.road += ((i + 3) % 6).toString();
+          tile.terrain.road += i.toString();
+        }
+      }
+      tile.buildings.push({
+        id: uuidv4(),
+        buildingType: "Dirt Road",
+        allowedRecipes: [],
+        maxPops: 0,
+        maintenanceCost: {},
+        workers: new Set(),
+        upgrades: {},
+        status: "built",
+        type: "building",
+        currentProjects: [],
+        built: {
+          day: 1,
+          year: 0,
+          period: "Afternoon",
+        },
+      });
+      prevTile = tile;
+    }
+  }
+  getMovementCostBetween(from: TerrainTile, to: TerrainTile): number {
+    // Water is essentially impassable
+    if (to.terrain.topography === "Water") {
+      return 99999;
+    }
+
+    // Base cost for terrain type
+    let baseCost = 1;
+    if (to.terrain.elevation >= 10) {
+      // Mountain terrain
+      baseCost = 999;
+    }
+
+    // Penalize elevation changes (squared to heavily favor gentle slopes)
+    const elevationDiff = Math.abs(
+      to.terrain.elevation - from.terrain.elevation,
+    );
+    const elevationPenalty = Math.pow(elevationDiff, 2);
+
+    // Total cost
+    return baseCost + elevationPenalty;
+  }
+  pathFindOptimizedWithPQ(startCood: Cube, targetCood: Cube): TerrainTile[] {
+    const openSet = new PriorityQueue<PathNode>();
+    const closedSet = new Set<string>();
+    const nodeMap: Record<string, PathNode> = {};
+
+    const startKey = fromCube(startCood);
+    const targetKey = fromCube(targetCood);
+
+    const startNode: PathNode = {
+      tile: this.tiles[startKey],
+      parent: null,
+      gCost: 0,
+      hCost: this.getDistance(startCood, targetCood),
+      fCost: this.getDistance(startCood, targetCood),
+    };
+
+    openSet.enqueue(startKey, startNode, startNode.fCost);
+    nodeMap[startKey] = startNode;
+
+    while (openSet.size > 0) {
+      const current = openSet.dequeue();
+      if (!current) break;
+
+      const { key: currentKey, value: currentNode } = current;
+
+      if (currentKey === targetKey) {
+        return this.reconstructPath(currentNode);
+      }
+
+      closedSet.add(currentKey);
+
+      const neighbors = this.getRing(
+        currentNode.tile.loc.q,
+        currentNode.tile.loc.s,
+        currentNode.tile.loc.r,
+        1,
+      );
+
+      for (const neighborTile of neighbors) {
+        const neighborKey = fromCube(neighborTile.loc);
+
+        if (closedSet.has(neighborKey)) continue;
+
+        const moveCost = this.getMovementCostBetween(
+          currentNode.tile,
+          neighborTile,
+        );
+
+        if (moveCost >= 9999) continue;
+
+        const tentativeGCost = currentNode.gCost + moveCost;
+        const existingNode = nodeMap[neighborKey];
+
+        if (!existingNode || tentativeGCost < existingNode.gCost) {
+          const hCost = this.getDistance(neighborTile.loc, targetCood);
+          const newNode: PathNode = {
+            tile: neighborTile,
+            parent: currentNode,
+            gCost: tentativeGCost,
+            hCost: hCost,
+            fCost: tentativeGCost + hCost,
+          };
+
+          nodeMap[neighborKey] = newNode;
+          openSet.enqueue(neighborKey, newNode, newNode.fCost);
+        }
+      }
+    }
+
+    return [];
+  }
+  reconstructPath(targetNode: PathNode): TerrainTile[] {
+    const path: TerrainTile[] = [];
+    let current: PathNode | null = targetNode;
+
+    while (current !== null) {
+      path.unshift(current.tile);
+      current = current.parent;
+    }
+
+    return path;
   }
   getEdgeDistance(x: number, y: number) {
     return (
@@ -861,4 +1045,55 @@ export class Map {
       this.tiles[fromCube({ q, s, r })] = new TerrainTile(-3, q, s, r, "Water");
     return this.tiles[fromCube({ q, s, r })];
   }
+}
+class PriorityQueue<T> {
+  private items: Array<{ key: string; value: T; priority: number }> = [];
+
+  enqueue(key: string, value: T, priority: number) {
+    const newItem = { key, value, priority };
+    let added = false;
+
+    for (let i = 0; i < this.items.length; i++) {
+      if (priority < this.items[i].priority) {
+        this.items.splice(i, 0, newItem);
+        added = true;
+        break;
+      }
+    }
+
+    if (!added) {
+      this.items.push(newItem);
+    }
+  }
+
+  dequeue(): { key: string; value: T; priority: number } | undefined {
+    return this.items.shift();
+  }
+
+  has(key: string): boolean {
+    return this.items.some((item) => item.key === key);
+  }
+
+  get(key: string): T | undefined {
+    return this.items.find((item) => item.key === key)?.value;
+  }
+
+  delete(key: string) {
+    const index = this.items.findIndex((item) => item.key === key);
+    if (index !== -1) {
+      this.items.splice(index, 1);
+    }
+  }
+
+  get size(): number {
+    return this.items.length;
+  }
+}
+
+interface PathNode {
+  tile: TerrainTile;
+  parent: PathNode | null;
+  gCost: number; // Cost from start
+  hCost: number; // Heuristic cost to target
+  fCost: number; // Total cost (g + h)
 }

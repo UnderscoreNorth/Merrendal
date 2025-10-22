@@ -1,6 +1,6 @@
 <script lang="ts">
   import { autoPlay, game } from "$lib/stores";
-
+  import { saveGame } from "$lib/storage";
   import { simulateDay } from "$lib/simulation";
   let debounce = false;
   async function runDays(number: number, fast = false) {
@@ -16,6 +16,9 @@
     }
     $game.render = true;
     debounce = false;
+
+    // Auto-save after simulation completes
+    saveGame();
   }
 
   const seasonEmoji = {

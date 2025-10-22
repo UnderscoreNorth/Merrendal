@@ -42,6 +42,7 @@ export type Villager = Human & {
   home: string;
   spouse?: string;
   children: string[];
+  parents: [string?, string?]; // [parent1, parent2]
   skills: Record<string, number>;
   apprentices: string[];
 };
@@ -58,6 +59,7 @@ export type AnimalType = "Cattle" | "Chicken" | "Sheep";
 export type Animal = Being & {
   type: "Animal";
   animalType: AnimalType;
+  pasture: string; // Building ID of the pasture they're assigned to
 };
 
 export type SkillTitles = "Master" | "Expert" | "Journeyman" | "Apprentice";

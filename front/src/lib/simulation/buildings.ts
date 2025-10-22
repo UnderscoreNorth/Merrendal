@@ -7,6 +7,7 @@ import type {
 import { buildingTypes } from "../data/buildings";
 import { type GameState } from "$lib/stores";
 import { type Area } from "$lib/data/areas";
+import { type ItemRecord } from "$lib/data/items";
 import { v4 as uuidv4 } from "uuid";
 import { skillUp } from "./workers";
 import { recordLoop } from "$lib/util/recordLoop";
@@ -21,6 +22,68 @@ export function getAllProjects(gs: GameState) {
   return Object.values(gs.areas)
     .map((i) => i.currentProjects)
     .flat();
+}
+
+/**
+ * Calculate the total cost of a building based on its requirements
+ */
+function calculateBuildingCost(buildingType: BuildingType): number {
+  const template = buildingTypes[buildingType];
+  return Object.values(template.requirements).reduce((sum, val) => sum + val, 0);
+}
+
+/**
+ * Calculate the total maintenance cost accumulated for a building
+ */
+function getTotalMaintenanceCost(maintenanceCost: ItemRecord): number {
+  return Object.values(maintenanceCost).reduce((sum: number, val) => sum + (val ?? 0), 0);
+}
+
+/**
+ * Evict all workers and residents from a ruined building
+ */
+function evictFromBuilding(gs: GameState, building: Building): void {
+  // Evict all workers
+  for (const workerId of building.workers) {
+    const worker = gs.npcs.find((npc) => npc.id === workerId);
+    if (worker) {
+      worker.job = undefined;
+    }
+  }
+  building.workers.clear();
+
+  // Evict all residents (anyone who has this building as their home)
+  for (const npc of gs.npcs) {
+    if (npc.home === building.id) {
+      npc.home = "";
+    }
+  }
+}
+
+/**
+ * Assigns a villager and their family to a home
+ * @param gs GameState
+ * @param homeId The building ID to assign as home
+ */
+export function assignVillagerToHome(gs: GameState, homeId: string): void {
+  // Find the building to check if it's ruined
+  const building = getAllBuildings(gs).find((b) => b.id === homeId);
+  if (!building || building.status === "ruined") {
+    return; // Don't assign to ruined buildings
+  }
+
+  const npc = gs.npcs.filter((i) => i.home == "" && i.age >= 16)[0];
+  if (npc) {
+    npc.home = homeId;
+    if (npc.spouse !== undefined) {
+      const spouse = gs.npcs.find((i) => i.id == npc.spouse);
+      if (spouse !== undefined) spouse.home = homeId;
+    }
+    for (const childrenID of npc.children) {
+      const child = gs.npcs.find((i) => i.id == childrenID);
+      if (child !== undefined) child.home = homeId;
+    }
+  }
 }
 
 export function doConstruction(gs: GameState) {
@@ -224,20 +287,6 @@ export function doConstruction(gs: GameState) {
               year: gs.currentYear,
             };
             completeBuilding(gs, area, project.building);
-            if (project.building.buildingType == "Burgage") {
-              const npc = gs.npcs.filter((i) => i.home == "" && i.age >= 16)[0];
-              if (npc) {
-                npc.home = project.building.id;
-                if (npc.spouse !== undefined) {
-                  const spouse = gs.npcs.find((i) => i.id == npc.spouse);
-                  if (spouse !== undefined) spouse.home = project.building.id;
-                }
-                for (const childrenID of npc.children) {
-                  const child = gs.npcs.find((i) => i.id == childrenID);
-                  if (child !== undefined) child.home = project.building.id;
-                }
-              }
-            }
           } else if (project.type === "upgrade") {
             // Add upgrade to building
             const buildingUpgrades =
@@ -260,6 +309,11 @@ export function doConstruction(gs: GameState) {
                 status: "built",
                 maintenanceCost: upgradeData?.maintenance?.cost ?? {},
               };
+
+              // Add upgrade size to building land if the upgrade has a size
+              if (upgradeData?.size) {
+                area.buildingLand += upgradeData.size;
+              }
 
               // Add upgrade recipes to building's allowedRecipes if they exist
               if (upgradeData?.allowedRecipes) {
@@ -319,9 +373,25 @@ export function doConstruction(gs: GameState) {
             (b) => b.id === project.building.id,
           );
           if (buildingIndex !== -1) {
-            area.buildings.splice(buildingIndex, 1);
+            // Reduce building land by building size
             area.buildingLand -=
               buildingTypes[project.building.buildingType].size;
+
+            // Also reduce building land by upgrade sizes
+            const buildingTemplate = buildingTypes[project.building.buildingType];
+            for (const [upgradeName, upgradeStatus] of Object.entries(
+              project.building.upgrades,
+            )) {
+              if (upgradeStatus.status === "built") {
+                //@ts-ignore - Dynamic upgrade lookup
+                const upgradeData = buildingTemplate.upgrades[upgradeName] as Upgrade | undefined;
+                if (upgradeData?.size) {
+                  area.buildingLand -= upgradeData.size;
+                }
+              }
+            }
+
+            area.buildings.splice(buildingIndex, 1);
           }
         }
       }
@@ -378,33 +448,37 @@ export function completeBuilding(
   area.buildings.push(building);
   area.buildingLand += buildingTypes[building.buildingType].size;
   if (gs.map) {
-    const neighboringCubes = getNeighboringCubes(area.loc);
-    let road = area.buildings.some((i) => i.buildingType == "Dirt Road")
-      ? "init"
-      : "";
-    let roadArray: number[] = [];
-    for (const i in neighboringCubes) {
-      const neighborId = fromCube(neighboringCubes[i]);
-      const oTile = gs.map.tiles[neighborId];
-      if (oTile && oTile.terrain.topography !== "Water") {
-        if (
-          oTile.buildings.some((i) => i.buildingType == "Dirt Road") &&
-          road == "init"
-        ) {
-          roadArray.push(Number(i));
-          let oTileRoads = oTile.terrain.road.split("").map((i) => Number(i));
-          oTileRoads.push(Number(i) + (3 % 6));
-          console.log(oTileRoads);
-          oTile.terrain.road = oTileRoads.sort().join("");
-        }
-        const alreadyExists = gs.areas.some((a) => a.areaID === neighborId);
-        if (!alreadyExists) {
-          gs.areas.push(oTile);
+    if (building.buildingType == "Dirt Road") {
+      const neighboringCubes = getNeighboringCubes(area.loc);
+      let road = area.buildings.some((i) => i.buildingType == "Dirt Road")
+        ? "init"
+        : "";
+      let roadArray: number[] = [];
+      for (const i in neighboringCubes) {
+        const neighborId = fromCube(neighboringCubes[i]);
+        const oTile = gs.map.tiles[neighborId];
+        if (oTile && oTile.terrain.topography !== "Water") {
+          if (
+            oTile.buildings.some((i) => i.buildingType == "Dirt Road") &&
+            road == "init"
+          ) {
+            roadArray.push(Number(i));
+            let oTileRoads = oTile.terrain.road.split("").map((i) => Number(i));
+            oTileRoads.push(Number(i) + (3 % 6));
+            console.log(oTileRoads);
+            oTile.terrain.road = oTileRoads.sort().join("");
+          }
+          const alreadyExists = gs.areas.some((a) => a.areaID === neighborId);
+          if (!alreadyExists) {
+            gs.areas.push(oTile);
+          }
         }
       }
-    }
-    if (road == "init" && roadArray.length) {
-      area.terrain.road = roadArray.sort().join("");
+      if (road == "init" && roadArray.length) {
+        area.terrain.road = roadArray.sort().join("");
+      }
+    } else if (building.buildingType == "Burgage") {
+      assignVillagerToHome(gs, building.id);
     }
   }
 }
@@ -430,6 +504,8 @@ export function maintenance(gs: GameState) {
     ) {
       // Calculate maintenance cost (2% of building requirements)
       const buildingTemplate = buildingTypes[building.buildingType];
+      const buildingCost = calculateBuildingCost(building.buildingType);
+
       for (const [itemName, amount] of recordLoop(
         buildingTemplate.requirements,
       )) {
@@ -437,6 +513,41 @@ export function maintenance(gs: GameState) {
         //@ts-ignore
         building.maintenanceCost[itemName] =
           (building.maintenanceCost[itemName] ?? 0) + maintenanceCost;
+      }
+
+      // Cap maintenance cost at building cost
+      const totalMaintenance = getTotalMaintenanceCost(building.maintenanceCost);
+      if (totalMaintenance > buildingCost) {
+        // Scale down all maintenance costs proportionally
+        const scale = buildingCost / totalMaintenance;
+        for (const [itemName, cost] of Object.entries(building.maintenanceCost)) {
+          if (cost !== undefined) {
+            //@ts-ignore
+            building.maintenanceCost[itemName] = cost * scale;
+          }
+        }
+      }
+
+      // Check for building ruin based on maintenance cost
+      if (building.status === "built") {
+        const ruinThreshold = buildingCost * 0.5; // 50% of building cost
+        if (totalMaintenance >= ruinThreshold) {
+          // Calculate ruin chance: scales from 0% at 50% to 100% at 100%
+          const excessMaintenance = totalMaintenance - ruinThreshold;
+          const ruinRange = buildingCost - ruinThreshold;
+          const ruinChance = Math.min(1, excessMaintenance / ruinRange);
+
+          if (Math.random() < ruinChance) {
+            building.status = "ruined";
+            evictFromBuilding(gs, building);
+            gs.log.push({
+              year: gs.currentYear,
+              day: gs.currentDay,
+              msg: `${building.buildingType} has fallen into ruin due to lack of maintenance!`,
+              tags: ["building", "ruin"],
+            });
+          }
+        }
       }
 
       // Schedule next maintenance (random day next year)
@@ -469,12 +580,11 @@ export function maintenance(gs: GameState) {
           | undefined;
 
         if (upgradeData && upgradeData.maintenance) {
-          for (const [itemName, amount] of Object.entries(
+          for (const [itemName, amount] of recordLoop(
             upgradeData.maintenance.cost,
           )) {
-            //@ts-ignore
             upgrade.maintenanceCost[itemName] =
-              (upgrade.maintenanceCost[itemName] ?? 0) + amount;
+              (upgrade.maintenanceCost[itemName] ?? 0) + (amount ?? 0);
           }
         }
 
@@ -535,6 +645,21 @@ export function maintenance(gs: GameState) {
               entity.maintenanceCost[itemName] -= workToDo;
               gs.inventory[itemName] -= workToDo;
             }
+
+            // Check if building is fully repaired (rebuilt)
+            if (building.status === "ruined") {
+              const totalMaintenance = getTotalMaintenanceCost(building.maintenanceCost);
+              if (totalMaintenance <= 0) {
+                building.status = "built";
+                gs.log.push({
+                  year: gs.currentYear,
+                  day: gs.currentDay,
+                  msg: `${building.buildingType} has been rebuilt!`,
+                  tags: ["building", "rebuild"],
+                });
+              }
+            }
+
             if (availableWork <= 0) {
               gs.dailyWorkerActivity.add(worker.id);
               break;

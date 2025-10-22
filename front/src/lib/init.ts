@@ -1,26 +1,25 @@
 import { type Area } from "./data/areas";
-import { generateFName, type Villager } from "./data/living";
+import { generateFName, type Villager, type Animal } from "./data/living";
 import { Map } from "./map/generation";
+import { startConstruction } from "./simulation/buildings";
 import { rollStats } from "./simulation/living";
 import { game, map } from "./stores";
 import { rollRange } from "./util/rolls";
 import { v4 as uuidv4 } from "uuid";
+import { fromCube, getNeighboringCubes } from "./util/terrainHelpers";
 export function init() {
   let num = 10;
   const npcs: Villager[] = [];
+  const animals: Animal[] = [];
   let bread = 0;
   const mapSize = 40;
   const mapData = new Map(mapSize, []);
   const areas: Area[] = [];
-
-  // Create village
-  let villageId = "";
-  for (let i in mapData.villages) {
-    const villageTile = mapData.villages[i];
-    areas.push(villageTile);
-    villageId = villageTile.areaID;
+  const startArea = mapData.start;
+  areas.push(startArea);
+  for (const qrs of getNeighboringCubes(startArea.loc)) {
+    areas.push(mapData.tiles[fromCube(qrs)]);
   }
-
   // Initialize NPCs after areas are created so we can assign home areas
   for (let i = 0; i < num; i++) {
     const age = Math.ceil(Math.random() * 40) + 20;
@@ -41,6 +40,7 @@ export function init() {
       equipement: [],
       home: "",
       children: [],
+      parents: [], // Initial NPCs have no parents
       apprentices: [],
       type: "Villager",
       health: 100,
@@ -51,32 +51,53 @@ export function init() {
       npcs[i - 1].spouse = npc.id;
     }
   }
-  game.set({
-    npcs,
-    deadNpcs: [],
-    areas,
-    inventory: {
-      Bread: bread,
-    },
-    priorInventory: {},
-    currentDay: 1,
-    currentYear: 0,
-    currentPeriod: "Morning",
-    dailyWorkerActivity: new Set(),
-    areaActionTaken: false,
-    log: [],
-    season: "Spring",
-    mapSize,
-    needs: {},
-    map: mapData,
-    pause: false,
-    pending: false,
-    activeEvents: [],
-    village: {
-      trust: 700,
-      authority: 700,
-    },
-    render: true,
+
+  // Initialize starting animals: 2 cattle
+  for (let i = 0; i < 2; i++) {
+    const cattle: Animal = {
+      id: uuidv4(),
+      type: "Animal",
+      animalType: "Cattle",
+      age: 4, // Start at maturity
+      birthday: rollRange(1, 365),
+      status: [],
+      pasture: "", // Not assigned to any pasture initially
+    };
+    animals.push(cattle);
+  }
+
+  game.update((gs) => {
+    gs = {
+      seed: uuidv4(),
+      npcs,
+      deadNpcs: [],
+      animals,
+      areas,
+      inventory: {
+        Bread: bread,
+      },
+      priorInventory: {},
+      currentDay: 1,
+      currentYear: 100,
+      currentPeriod: "Morning",
+      dailyWorkerActivity: new Set(),
+      areaActionTaken: false,
+      log: [],
+      season: "Spring",
+      mapSize,
+      needs: {},
+      map: mapData,
+      pause: false,
+      pending: false,
+      activeEvents: [],
+      village: {
+        trust: 700,
+        authority: 700,
+      },
+      render: true,
+    };
+    startConstruction(gs, "Village Square", startArea, true);
+    return gs;
   });
 
   map.set(

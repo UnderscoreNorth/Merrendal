@@ -2,13 +2,15 @@ import { writable } from "svelte/store";
 import { type Area } from "./data/areas";
 import { type ItemName } from "./data/items";
 import { Map, TerrainTile } from "./map/generation";
-import type { Villager } from "./data/living";
+import type { Villager, Animal } from "./data/living";
 
 export type TimePeriod = "Morning" | "Afternoon" | "Evening";
 
 export type GameState = {
+  seed: string;
   npcs: Villager[];
   deadNpcs: Villager[];
+  animals: Animal[];
   areas: Area[];
   inventory: Partial<Record<ItemName, number>>;
   priorInventory: Partial<Record<ItemName, number>>;
@@ -32,8 +34,10 @@ export type GameState = {
   render: boolean;
 };
 export const game = writable<GameState>({
+  seed: "",
   npcs: [],
   deadNpcs: [],
+  animals: [],
   areas: [],
   inventory: {},
   priorInventory: {},
@@ -64,6 +68,8 @@ export type View = {
   xDiff: number;
   yDiff: number;
   rotation: number;
+  relief: number;
+  treeOpacity: number;
 };
 export const view = writable<View>({
   zoom: 1,
@@ -73,6 +79,8 @@ export const view = writable<View>({
   yDiff: 0,
   renderSize: 1000,
   rotation: 0,
+  relief: 2,
+  treeOpacity: 100,
 });
 export const openModals = writable<Record<string, any>>({});
 export const mouseCood = writable<{ x: number; y: number }>({ x: 0, y: 0 });
