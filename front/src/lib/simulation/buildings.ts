@@ -185,45 +185,6 @@ export function doConstruction(gs: GameState) {
       let requirements: Record<string, number> = {};
 
       if (project.type === "construction" || project.type === "upgrade") {
-        // Special handling for Convert to Arable Land upgrade
-        if (
-          project.type === "upgrade" &&
-          project.upgrade === "Convert to Arable Land"
-        ) {
-          // This upgrade uses worker time instead of materials
-          //@ts-ignore - Using custom progress tracking for work days
-          const currentProgress = project.progress["Work Days"] ?? 0;
-          const requiredWorkDays = 10; // 10 days for 1 acre
-
-          if (currentProgress < requiredWorkDays) {
-            //@ts-ignore - Using custom progress tracking for work days
-            project.progress["Work Days"] = currentProgress + 0.1; // 0.1 per worker per period
-            workerAssigned = true;
-            gs.dailyWorkerActivity.add(worker.id);
-          }
-
-          // Check if complete
-          //@ts-ignore - Using custom progress tracking for work days
-          if ((project.progress["Work Days"] ?? 0) >= requiredWorkDays) {
-            // Remove from currentProjects
-            area.currentProjects.splice(i, 1);
-            // Add 1 acre of arable land
-            area.arableLand -= 1;
-            const buildingUpgrades =
-              buildingTypes[project.building.buildingType].upgrades;
-            const upgradeKey = project.upgrade as string;
-            const upgradeData = buildingUpgrades[
-              upgradeKey as keyof typeof buildingUpgrades
-            ] as Upgrade | undefined;
-            project.building.upgrades[project.upgrade] = {
-              status: "built",
-              maintenanceCost: upgradeData?.maintenance?.cost ?? {},
-              targetArea: project.targetArea, // Include targetArea if it exists
-            };
-          }
-          continue;
-        }
-
         // Special handling for Dirt Road construction
         if (
           project.type === "construction" &&

@@ -611,11 +611,11 @@ export const buildingTypes = {
   },
   "Farm Field": {
     maxPops: 0,
-    requirements: {},
+    requirements: { Lumber: 2000 },
     upgrades: {
       "Convert to Arable Land": {
         repeatable: true,
-        requirements: {},
+        requirements: { Lumber: 2000 },
         size: 1, // Adds 1 acre to the farm field
         canExpandToNeighbor: true,
       },

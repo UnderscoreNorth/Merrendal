@@ -4,7 +4,7 @@ import * as PIXI from "pixi.js";
 export async function loadTilesheet() {
   async function loadAsset(fn: string) {
     return new PIXI.Texture({
-      source: await PIXI.Assets.load(`/sprites/${fn}.png`),
+      source: await PIXI.Assets.load(`sprites/${fn}.png`),
     });
   }
   const tilesheet = {
