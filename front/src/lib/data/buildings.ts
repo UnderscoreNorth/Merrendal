@@ -536,8 +536,8 @@ export const buildingTypes = {
     category: "Industry",
     allowedRecipes: ["Gold Ingot", "Silver Ingot"],
     icon: {
-      x: 0,
-      y: 6,
+      x: 6,
+      y: 0,
     },
     size: 0.1,
   },
@@ -567,8 +567,8 @@ export const buildingTypes = {
     upgrades: {},
     allowedRecipes: ["Leather"],
     icon: {
-      x: 0,
-      y: 4,
+      x: 4,
+      y: 0,
     },
     occupationTitle: "Tanner",
     category: "Industry",
@@ -583,7 +583,7 @@ export const buildingTypes = {
     upgrades: {},
     allowedRecipes: ["Fired Clay", "Charcoal"],
     category: "Industry",
-    icon: { x: 0, y: 5 },
+    icon: { x: 5, y: 0 },
     size: 0.1,
   },
   Brewery: {

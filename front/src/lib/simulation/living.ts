@@ -44,6 +44,7 @@ export function assignNPCs(gs: GameState, target: Building, num: number) {
         (npc) =>
           (npc.job == undefined || npc.job.title == "") &&
           npc.age >= 16 &&
+          npc.job?.attached !== target.id &&
           !gs.dailyWorkerActivity.has(npc.id),
       )
       .sort((a, b) => {
