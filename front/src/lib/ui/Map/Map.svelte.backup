@@ -227,11 +227,11 @@
     }
     data.container.zIndex = layer;
     // Draw trees on top of the base tile
-    const area = $game.areas.find((i) => fromCube(i.loc) == fromCube(cell.loc));
+    const area = Object.values($game.areas).find((i) => fromCube(i.loc) == fromCube(cell.loc));
     drawTrees(treeSprites, mapSprites, area, buildingSheet, fullTrees, cell, u);
   }
   function openArea(q: number, r: number, s: number) {
-    const area = $game.areas.find(
+    const area = Object.values($game.areas).find(
       (a) => a.loc.q == q && a.loc.r == r && a.loc.s == s,
     );
     if (area !== undefined) {

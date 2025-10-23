@@ -26,9 +26,7 @@ export type Being = {
 export type Human = Being & {
   fName: string;
   stats: Stats;
-  equipement: [];
-  hunger: number;
-  health: number;
+  equipement: ItemName[];
 };
 
 export type Villager = Human & {
@@ -45,6 +43,10 @@ export type Villager = Human & {
   parents: [string?, string?]; // [parent1, parent2]
   skills: Record<string, number>;
   apprentices: string[];
+  comfort: number;
+  hunger: "Starving" | "Hungry" | "Comfortable" | "Well Fed";
+  warmth: "Freezing" | "Cold" | "Comfortable";
+  health: "Malnutritioned" | "Stable" | "Healthy";
 };
 
 export type Lord = Human & {

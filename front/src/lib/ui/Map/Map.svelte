@@ -2,7 +2,13 @@
   import { onMount, onDestroy } from "svelte";
   import * as PIXI from "pixi.js";
   import { BloomFilter } from "pixi-filters";
-  import { game, map, openModals, view, tileSelection } from "$lib/stores";
+  import {
+    game,
+    openModals,
+    view,
+    tileSelection,
+    changedAreas,
+  } from "$lib/stores";
   import type { TerrainTile } from "$lib/map/generation";
   import { fromCube } from "$lib/util/terrainHelpers";
   import { drawTrees, getTreePositions, type TreeCoord } from "./drawTrees";
@@ -18,6 +24,7 @@
     type TileSpriteData,
   } from "./tileRenderer";
   import { drawRiverRoad } from "./riverRoadRenderer";
+  import { type Area } from "$lib/data/areas";
 
   // PIXI App and containers
   let container: HTMLDivElement;
@@ -32,7 +39,6 @@
   let tilesheet: Record<string, PIXI.Texture> = {};
   let buildingSheet: Record<string, PIXI.Texture> = {};
   let fullTrees: PIXI.Texture[] = [];
-  let riverTextures: Record<string, PIXI.Texture> = {};
 
   // State flags
   let isMapBuilt = false;
@@ -48,7 +54,7 @@
 
     // If in tile selection mode, handle tile selection
     if ($tileSelection?.active) {
-      const area = $game.areas.find(
+      const area = Object.values($game.areas).find(
         (a) => a.loc.q === q && a.loc.r === r && a.loc.s === s,
       );
       if (area && $tileSelection.eligibleTiles.has(area.areaID)) {
@@ -58,7 +64,7 @@
     }
 
     // Normal behavior: open modals
-    const area = $game.areas.find(
+    const area = Object.values($game.areas).find(
       (a) => a.loc.q === q && a.loc.r === r && a.loc.s === s,
     );
     if (area !== undefined) {
@@ -74,7 +80,7 @@
   /**
    * Draw or update a single tile
    */
-  function drawTile(cell: TerrainTile, u: number) {
+  function drawTile(cell: Area, u: number) {
     const tileKey = fromCube(cell.loc);
     let data = mapSprites[tileKey];
 
@@ -108,9 +114,10 @@
       // Setup interaction
       tileContainer.eventMode = "static";
       tileContainer.hitArea = createHexHitArea(u);
-      tileContainer.on("pointerdown", () =>
-        openArea(cell.loc.q, cell.loc.r, cell.loc.s),
-      );
+      tileContainer.on("pointerup", () => {
+        if ($view.xDiff == 0 && $view.yDiff == 0)
+          openArea(cell.loc.q, cell.loc.r, cell.loc.s);
+      });
       tileContainer.on("mouseover", () => {
         tileContainer.filters = [new BloomFilter({ strength: 3 })];
       });
@@ -133,9 +140,8 @@
     data.container.zIndex = layer;
 
     // Apply greying out for tile selection mode
-    const area = $game.areas.find((i) => fromCube(i.loc) === tileKey);
     if ($tileSelection?.active) {
-      if (area && $tileSelection.eligibleTiles.has(area.areaID)) {
+      if ($tileSelection.eligibleTiles.has(cell.areaID)) {
         // Eligible tile - normal brightness
         data.tile.tint = calculateTileBrightness(cell);
         data.container.alpha = 1;
@@ -151,6 +157,7 @@
     }
 
     // Draw rivers and roads
+    if (fromCube(cell.loc) == "-1,34,-33") console.log(cell.terrain);
     if (cell.terrain.river || cell.terrain.road) {
       if (data.riverRoad) {
         data.container.removeChild(data.riverRoad);
@@ -166,7 +173,6 @@
     drawTrees(
       treeSprites,
       mapSprites,
-      area,
       buildingSheet,
       fullTrees,
       cell,
@@ -180,29 +186,11 @@
    */
   function buildMap() {
     if (!app || !mapContainer || !tilesheetLoaded) return;
-    if (seed !== $game.seed) {
-      seed = $game.seed;
-      for (const data of Object.values(mapSprites)) {
-        for (const subData of data.container.children) {
-          data.container.removeChild(subData);
-          subData.destroy();
-        }
-        const tile = data.tile;
-        data.container.removeChild(tile);
-        tile.destroy();
-        data.container.destroy();
-      }
-      for (const data of mapContainer.children) {
-        mapContainer.removeChild(data);
-        data.destroy();
-      }
-      mapSprites = {};
-    }
     console.time("building map");
 
     // Collect lakes
     lakes = new Set();
-    for (const tile of $map) {
+    for (const tile of Object.values($game.areas)) {
       if (tile.terrain.topography === "Water") {
         lakes.add(tile.groupID);
       }
@@ -211,7 +199,7 @@
     const u = $view.renderSize / (($game.mapSize * 4) / 2);
 
     // Draw all tiles
-    for (const cell of $map) {
+    for (const cell of Object.values($game.areas)) {
       drawTile(cell, u);
     }
 
@@ -224,7 +212,7 @@
    * Initialize tree positions for all tiles
    */
   function initTrees() {
-    for (const tile of $map) {
+    for (const tile of Object.values($game.areas)) {
       treeSprites[fromCube(tile.loc)] = getTreePositions(fullTrees, tile);
     }
   }
@@ -236,6 +224,7 @@
     if (!mapContainer) return;
 
     requestAnimationFrame(() => {
+      if (mapContainer.scale == undefined) return;
       mapContainer.scale.set($view.zoom);
       mapContainer.position.set(
         ($view.x + $view.xDiff) * $view.zoom,
@@ -266,8 +255,7 @@
     app.stage.addChild(mapContainer);
 
     // Load assets
-    ({ fullTrees, tilesheet, riverTextures, buildingSheet } =
-      await loadTilesheet());
+    ({ fullTrees, tilesheet, buildingSheet } = await loadTilesheet());
     tilesheetLoaded = true;
 
     // Initialize and build
@@ -275,16 +263,20 @@
     buildMap();
 
     // Setup subscriptions
-    const unsubGame = game.subscribe((g) => {
-      if (g.render) {
+    const unsubGame = changedAreas.subscribe((cA) => {
+      console.log(cA);
+      if (cA.tiles.length && cA.render) {
+        for (const tileKey of cA.tiles) {
+          let tile = mapSprites[tileKey].tile;
+          mapSprites[tileKey].container.removeChild(tile);
+          tile.destroy();
+          delete mapSprites[tileKey];
+        }
         isMapBuilt = false;
         buildMap();
+        $changedAreas.tiles = [];
+        $changedAreas.render = false;
       }
-    });
-
-    const unsubMap = map.subscribe(() => {
-      isMapBuilt = false;
-      buildMap();
     });
 
     const unsubView = view.subscribe(() => {
@@ -308,7 +300,6 @@
     // Cleanup function
     return () => {
       unsubGame();
-      unsubMap();
       unsubView();
       unsubTileSelection();
     };

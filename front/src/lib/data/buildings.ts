@@ -10,7 +10,7 @@ export type Building = {
   buildingType: BuildingType;
   maxPops: number;
   liveIn?: boolean;
-  workers: Set<string>;
+  workers: string[];
   occupationTitle?: string;
   stuck?: boolean;
   status: "built" | "ruined" | "demolishing";
@@ -38,6 +38,7 @@ export type BuildingTemplate = {
   occupationTitle?: string;
   stuck?: boolean;
   requirements: ItemRecord;
+  timeCost?: number;
   liveIn?: boolean;
   maxPops: number;
   upgrades: Record<string, Upgrade>;
@@ -348,6 +349,7 @@ export const buildingTypes = {
       y: 3,
     },
     size: 1,
+    timeCost: 1,
   },
   "Foraging Hut": {
     requirements: { Lumber: 500 },
@@ -608,38 +610,25 @@ export const buildingTypes = {
     size: 0,
     icon: { x: 5, y: 2 },
     maxAllowed: 1,
+    timeCost: 10,
   },
   "Farm Field": {
     maxPops: 0,
     requirements: { Lumber: 2000 },
-    upgrades: {
-      "Convert to Arable Land": {
-        repeatable: true,
-        requirements: { Lumber: 2000 },
-        size: 1, // Adds 1 acre to the farm field
-        canExpandToNeighbor: true,
-      },
-    },
+    upgrades: {},
     category: "Food",
     allowedRecipes: [],
-    size: 1, // Starts with 1 acre
+    size: 20,
     icon: { x: 6, y: 2 },
   },
   Pasture: {
     maxPops: 1,
     requirements: { Lumber: 2000 },
-    upgrades: {
-      "Expand Pasture": {
-        repeatable: true,
-        requirements: { Lumber: 2000 },
-        size: 1,
-        canExpandToNeighbor: true,
-      },
-    },
+    upgrades: {},
     occupationTitle: "Rancher",
     category: "Food",
     allowedRecipes: [],
-    size: 1,
+    size: 20,
     icon: { x: 6, y: 2 },
   },
 } as const satisfies Record<string, BuildingTemplate>;

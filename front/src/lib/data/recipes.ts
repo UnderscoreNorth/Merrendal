@@ -28,7 +28,7 @@ export const recipes = {
       );
 
       // Find the area where this building is located
-      const area = gs.areas.find((a) =>
+      const area = Object.values(gs.areas).find((a) =>
         a.buildings.some((b) => b.id === building.id),
       );
 
@@ -53,7 +53,7 @@ export const recipes = {
           // Local area has no forest, check neighboring areas
           const neighboringCubes = getNeighboringCubes(area.loc);
           let remainingAmount = amount;
-          const forestedNeighbors = gs.areas.filter((a) => {
+          const forestedNeighbors = Object.values(gs.areas).filter((a) => {
             const neighborId = fromCube(a.loc);
             return (
               neighboringCubes.some((n) => fromCube(n) === neighborId) &&
@@ -776,7 +776,7 @@ export const recipes = {
 
 function getTotalForestCoverage(building: Building, gs: GameState): number {
   // Find the area where this building is located
-  const area = gs.areas.find((a) =>
+  const area = Object.values(gs.areas).find((a) =>
     a.buildings.some((b) => b.id === building.id),
   );
 
@@ -789,7 +789,9 @@ function getTotalForestCoverage(building: Building, gs: GameState): number {
   const neighboringCubes = getNeighboringCubes(area.loc);
   for (const neighborCube of neighboringCubes) {
     const neighborId = fromCube(neighborCube);
-    const neighborArea = gs.areas.find((a) => a.areaID === neighborId);
+    const neighborArea = Object.values(gs.areas).find(
+      (a) => a.areaID === neighborId,
+    );
     if (neighborArea) {
       totalForest += neighborArea.terrain.forested;
     }

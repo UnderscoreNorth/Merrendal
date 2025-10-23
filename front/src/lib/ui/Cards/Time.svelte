@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { autoPlay, game } from "$lib/stores";
+  import { autoPlay, changedAreas, game } from "$lib/stores";
   import { saveGame } from "$lib/storage";
   import { simulateDay } from "$lib/simulation";
   let debounce = false;
@@ -17,6 +17,7 @@
     $game.render = true;
     debounce = false;
 
+    $changedAreas.render = true;
     // Auto-save after simulation completes
     saveGame();
   }
@@ -31,9 +32,9 @@
 
 <svelte:window
   on:keydown={(e) => {
+    e.stopPropagation();
     if (e.code == "Space") runDays(1);
   }} />
-
 <div class="time-display">
   <div class="season">
     {seasonEmoji[$game.season]}

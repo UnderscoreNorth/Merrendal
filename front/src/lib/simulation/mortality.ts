@@ -74,7 +74,12 @@ function evictChildren(
   // The old home is now empty and available for new families
 }
 
-export function killNPC(npc: Villager, cause: string, gs: GameState): void {
+export function killNPC(
+  npc: Villager,
+  cause: string,
+  gs: GameState,
+  decreaseStability: boolean = true,
+): void {
   // Set cause of death
   npc.death = {
     cause,
@@ -90,46 +95,22 @@ export function killNPC(npc: Villager, cause: string, gs: GameState): void {
     const spouse = gs.npcs.find((n) => n.id === npc.spouse);
     const spouseIsDead = spouse?.death !== undefined;
 
-    if (spouseIsDead) {
+    if (spouseIsDead || !spouse) {
       // Both spouses are dead - evict all children from this home
       evictChildren(gs, npc.home, npc);
     }
   }
 
   unassignNPC(gs, npc);
-  // Remove from daily worker activity if present
-  gs.dailyWorkerActivity.delete(npc.id);
   //if (gs.lord) gs.lord.reignStats.died++;
   // Move to dead NPCs array
   gs.deadNpcs.push(npc);
   // Remove dead NPCs from living population
   gs.npcs = gs.npcs.filter((npc) => !npc.death);
+  if (decreaseStability) gs.village.stability--;
   log(gs, `${npc.age} yr old <i>${npc.fName}</i> died of <i>${cause}</i>`, [
     "Mortality",
   ]);
-}
-export function processHungerDeaths(gs: GameState): void {
-  // Check lord hunger death first
-  /*if (gs.lord && gs.lord.hunger >= 80 && gs.lord.hunger <= 100) {
-    // Calculate death chance: 0% at 80 hunger, 20% at 100 hunger
-    const deathChance = ((gs.lord.hunger - 80) / 20) * 0.2; // 0 to 0.2 (0% to 20%)
-
-    if (Math.random() < deathChance) {
-      killLord("Starvation", gs);
-    }
-  }*/
-
-  for (const npc of gs.npcs) {
-    // Check hunger-based death for NPCs with hunger between 80-100
-    if (npc.hunger >= 80 && npc.hunger <= 100) {
-      // Calculate death chance: 0% at 80 hunger, 20% at 100 hunger
-      const deathChance = ((npc.hunger - 80) / 20) * 0.2; // 0 to 0.2 (0% to 20%)
-
-      if (Math.random() < deathChance) {
-        killNPC(npc, "Starvation", gs);
-      }
-    }
-  }
 }
 
 export function processOldAgeDeaths(gs: GameState) {
@@ -137,16 +118,10 @@ export function processOldAgeDeaths(gs: GameState) {
     if (npc.age > 40) {
       const deathChance = 1 - Math.pow(0.999999, Math.pow(npc.age - 40, 2));
       if (Math.random() < deathChance) {
-        killNPC(npc, "Natural Causes", gs);
+        killNPC(npc, "Natural Causes", gs, false);
       }
     }
   }
-  /*if (gs.lord && gs.lord.age > 40) {
-    const deathChance = 1 - Math.pow(0.999999, Math.pow(gs.lord.age - 40, 1));
-    if (Math.random() < deathChance) {
-      killLord("Natural Causes", gs);
-    }
-  }*/
 }
 /**
  * Checks if two villagers share any parents (siblings or half-siblings)
@@ -236,7 +211,7 @@ export function processBirths(gs: GameState) {
   // Try to give birth for each eligible couple
   for (const parent of couplesWithHomes) {
     // Small chance per day (adjusted for realistic birth rates)
-    const birthChance = 0.001; // ~0.1% per day = ~36.5% per year for eligible couples
+    const birthChance = 0.001 * (gs.village.stability / 100); // ~0.1% per day = ~36.5% per year for eligible couples
 
     if (Math.random() < birthChance) {
       const spouse = parent.spouse
@@ -253,7 +228,7 @@ export function processBirths(gs: GameState) {
           title: "",
           stuck: false,
         },
-        hunger: 0,
+        hunger: "Comfortable",
         status: [],
         skills: {},
         apprentices: [],
@@ -262,7 +237,9 @@ export function processBirths(gs: GameState) {
         equipement: [],
         home: parent.home, // Assign to parents' home
         type: "Villager",
-        health: 100,
+        health: "Healthy",
+        warmth: "Comfortable",
+        comfort: 50,
       };
 
       // Add child to both parents' children lists

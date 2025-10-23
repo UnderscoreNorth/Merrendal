@@ -3,10 +3,9 @@ import { generateFName, type Villager, type Animal } from "./data/living";
 import { Map } from "./map/generation";
 import { startConstruction } from "./simulation/buildings";
 import { rollStats } from "./simulation/living";
-import { game, map } from "./stores";
+import { game } from "./stores";
 import { rollRange } from "./util/rolls";
 import { v4 as uuidv4 } from "uuid";
-import { fromCube, getNeighboringCubes } from "./util/terrainHelpers";
 export function init() {
   let num = 10;
   const npcs: Villager[] = [];
@@ -14,12 +13,8 @@ export function init() {
   let bread = 0;
   const mapSize = 40;
   const mapData = new Map(mapSize, []);
-  const areas: Area[] = [];
   const startArea = mapData.start;
-  areas.push(startArea);
-  for (const qrs of getNeighboringCubes(startArea.loc)) {
-    areas.push(mapData.tiles[fromCube(qrs)]);
-  }
+
   // Initialize NPCs after areas are created so we can assign home areas
   for (let i = 0; i < num; i++) {
     const age = Math.ceil(Math.random() * 40) + 20;
@@ -34,16 +29,18 @@ export function init() {
       },
       birthday: rollRange(1, 365),
       stats: rollStats(),
-      hunger: 0,
+      hunger: "Comfortable",
       skills: {},
       status: [],
-      equipement: [],
+      equipement: ["Wool Clothes", "Linen Clothes", "Boots"],
       home: "",
       children: [],
       parents: [], // Initial NPCs have no parents
       apprentices: [],
       type: "Villager",
-      health: 100,
+      health: "Healthy",
+      warmth: "Comfortable",
+      comfort: 50,
     };
     npcs.push(npc);
     if (i % 2 == 1) {
@@ -72,7 +69,7 @@ export function init() {
       npcs,
       deadNpcs: [],
       animals,
-      areas,
+      areas: mapData.tiles,
       inventory: {
         Bread: bread,
       },
@@ -92,17 +89,12 @@ export function init() {
       activeEvents: [],
       village: {
         trust: 700,
-        authority: 700,
+        authority: 0,
+        stability: 100,
       },
       render: true,
     };
     startConstruction(gs, "Village Square", startArea, true);
     return gs;
   });
-
-  map.set(
-    Object.values(mapData.tiles).sort((a, b) => {
-      return a.loc.r - b.loc.r;
-    }),
-  );
 }

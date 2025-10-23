@@ -1,6 +1,6 @@
 <script lang="ts">
   import { game, openModals } from "$lib/stores";
-  import type { Area, ProjectType, FieldRotationType } from "$lib/data/areas";
+  import type { Area } from "$lib/data/areas";
   import { recordLoop } from "$lib/util/recordLoop";
   import {
     type Building,
@@ -11,132 +11,30 @@
   import { assignNPCs, unassignNPC } from "$lib/simulation/living";
   import { items, type ItemName } from "$lib/data/items";
   import { startLandConversion } from "$lib/simulation/farming";
-  import type { UpgradeType } from "$lib/data/buildings";
+  import type { FieldRotationType, UpgradeType } from "$lib/data/buildings";
   import {
     assignAnimalToPasture,
     unassignAnimal,
     slaughterAnimal,
   } from "$lib/simulation/animals";
   import { animalType } from "$lib/data/animals";
-  import type { AnimalType } from "$lib/data/living";
   import { tileSelection } from "$lib/stores";
   import { getNeighboringCubes, fromCube } from "$lib/util/terrainHelpers";
   import {
     getTotalBuildingSize,
     getBuildingSizeInArea,
   } from "$lib/simulation/buildings";
+  import ProjectRows from "../Sub/ProjectRows.svelte";
+  import { addSet, delSet } from "$lib/util/sets";
+  import { getUsedSpace } from "$lib/simulation/areas";
+  import BuildingSubmodal from "./BuildingSubmodal.svelte";
+  import FarmingSubmodal from "./FarmingSubmodal.svelte";
 
   $: area = $openModals["areaDetail"] as Area;
   game.subscribe((a) => {
     area = area;
   });
 
-  function setFieldRotation(building: Building, type: FieldRotationType) {
-    if (!building.fieldRotation) {
-      building.fieldRotation = { type, currentYear: 0 };
-    } else {
-      building.fieldRotation.type = type;
-    }
-    $game = $game;
-  }
-
-  function getRotationCycle(
-    rotation: { type: FieldRotationType; currentYear: number } | undefined,
-  ): string {
-    if (!rotation) return "No rotation set";
-
-    if (rotation.type === "2-field") {
-      const cycle = ["Grain", "Fallow", "Legumes", "Grain"];
-      return cycle[rotation.currentYear % 4];
-    } else {
-      const cycle = ["Grain", "Legumes", "Fallow"];
-      return cycle[rotation.currentYear % 3];
-    }
-  }
-
-  /**
-   * Calculate total size used by completed and in-progress upgrades
-   */
-  function getTotalUpgradeSize(): number {
-    let totalSize = 0;
-
-    // Add sizes from built upgrades
-    for (const building of area.buildings) {
-      const buildingTemplate = buildingTypes[building.buildingType];
-      for (const [upgradeName, upgradeStatus] of Object.entries(
-        building.upgrades,
-      )) {
-        if (upgradeStatus.status === "built") {
-          const upgradeData = buildingTemplate.upgrades[upgradeName];
-          if (upgradeData && upgradeData.size) {
-            totalSize += upgradeData.size;
-          }
-        }
-      }
-    }
-
-    // Add sizes from in-progress upgrades
-    for (const project of area.currentProjects) {
-      if (project.type === "upgrade") {
-        const buildingTemplate = buildingTypes[project.building.buildingType];
-        const upgradeData = buildingTemplate.upgrades[project.upgrade];
-        if (upgradeData && upgradeData.size) {
-          totalSize += upgradeData.size;
-        }
-      }
-    }
-
-    return totalSize;
-  }
-
-  function startConstructionHandler(selectedBuilding: BuildingType) {
-    if (checkDisabled(selectedBuilding) == "disabled") return;
-    startConstruction($game, selectedBuilding, area);
-    $game = $game;
-  }
-  $: getProgress = (project: ProjectType) => {
-    if (project.type == "demolition") return project.progress;
-    if (project.type == "landConversion") {
-      const percentage = (project.progress / project.targetAcres) * 100;
-      return `${project.progress.toFixed(2)} / ${project.targetAcres.toFixed(2)} Acres (${percentage.toFixed(1)}%)`;
-    }
-    const buildingTemplate = buildingTypes[project.building.buildingType];
-    if (project.type == "construction") {
-      // Special handling for Dirt Road construction
-      if (project.building.buildingType === "Dirt Road") {
-        //@ts-ignore
-        const workDays = project.progress["Work Days"] ?? 0;
-        const requiredDays = 10;
-        const percentage = (workDays / requiredDays) * 100;
-        return `${workDays.toFixed(1)} / ${requiredDays} days (${percentage.toFixed(1)}%)`;
-      }
-      return `<table>${recordLoop(buildingTemplate.requirements)
-        .map(([itemName, amount]) => {
-          return `<tr>
-          <td>${itemName}</td>
-          <td>${project.progress[itemName] ?? 0}/</td>
-          <td>${amount}</td>
-          <td>${(((project.progress[itemName] ?? 0) / amount) * 100).toFixed(2)}%</td></tr>`;
-        })
-        .join("")}</table>`;
-    } else if (project.type == "upgrade") {
-      // Special handling for Convert to Arable Land
-      if (project.upgrade === "Convert to Arable Land") {
-        //@ts-ignore
-        const workDays = project.progress["Work Days"] ?? 0;
-        const requiredDays = 10;
-        const percentage = (workDays / requiredDays) * 100;
-        return `${workDays.toFixed(1)} / ${requiredDays} days (${percentage.toFixed(1)}%)`;
-      }
-      //@ts-ignore
-      return recordLoop(buildingTemplate.upgrades[project.upgrade].requirements)
-        .map(([itemName, amount]) => {
-          //@ts-ignore
-          return `${itemName} ${project.progress[itemName]}/${amount}`;
-        })
-        .join("<br>");
-    }
-  };
   $: getMaintenance = (building: Building) => {
     return `<table>${recordLoop(building.maintenanceCost)
       .filter((i) => i[1] > 0)
@@ -159,7 +57,9 @@
 
         if (residents.length > 0) {
           // Find first resident not already "working" at burgage
-          const resident = residents.find((r) => !building.workers.has(r.id));
+          const resident = residents.find(
+            (r) => !building.workers.includes(r.id),
+          );
           if (resident) {
             // If they have a job elsewhere, unassign them
             if (
@@ -170,7 +70,7 @@
             }
 
             // Add them to burgage workers
-            building.workers.add(resident.id);
+            building.workers = addSet(building.workers, resident.id);
             resident.job = {
               title: "None",
               stuck: false,
@@ -181,9 +81,9 @@
         }
       } else {
         // Remove a worker from burgage
-        const workerId = Array.from(building.workers)[0];
+        const workerId = building.workers[0];
         if (workerId) {
-          building.workers.delete(workerId);
+          building.workers = delSet(building.workers, workerId);
           const npc = $game.npcs.find((i) => i.id === workerId);
           if (npc && npc.job) {
             npc.job = { title: "None", stuck: false };
@@ -196,7 +96,7 @@
         assignNPCs($game, building, 1);
         // Set default recipe to first available recipe
         const workers = $game.npcs.filter((npc) =>
-          building.workers.has(npc.id),
+          building.workers.includes(npc.id),
         );
         if (workers.length && building.allowedRecipes.length) {
           const newWorker = workers[workers.length - 1];
@@ -205,9 +105,7 @@
           }
         }
       } else {
-        const npc = $game.npcs.find(
-          (i) => i.id == Array.from(building.workers)[0],
-        );
+        const npc = $game.npcs.find((i) => i.id == building.workers[0]);
         if (npc !== undefined) unassignNPC($game, npc);
       }
     }
@@ -223,7 +121,9 @@
   }
   function setAllRecipes(building: Building) {
     if (!building.allowedRecipes.length) return;
-    const workers = $game.npcs.filter((npc) => building.workers.has(npc.id));
+    const workers = $game.npcs.filter((npc) =>
+      building.workers.includes(npc.id),
+    );
     const defaultRecipe = building.allowedRecipes[0];
     for (const worker of workers) {
       if (worker.job) {
@@ -249,7 +149,7 @@
       // Add neighboring areas that exist
       for (const neighborCube of neighbors) {
         const neighborId = fromCube(neighborCube);
-        const neighborArea = $game.areas.find(
+        const neighborArea = Object.values($game.areas).find(
           (a) => fromCube(a.loc) === neighborId,
         );
         if (neighborArea) {
@@ -269,7 +169,9 @@
         eligibleTiles,
         onSelect: (targetAreaId: string) => {
           // Find the target area
-          const targetArea = $game.areas.find((a) => a.areaID === targetAreaId);
+          const targetArea = Object.values($game.areas).find(
+            (a) => a.areaID === targetAreaId,
+          );
           if (targetArea) {
             // Start the upgrade with the target area
             startUpgrade(targetArea, building, upgradeType, area.areaID);
@@ -337,20 +239,7 @@
       return true;
     });
   }
-  function cancelProject(project: ProjectType) {
-    let index = area.currentProjects.findIndex((i) => i.id == project.id);
-    if (index >= 0) {
-      area.currentProjects.splice(index, 1);
-      area = area;
-    }
-  }
-  function startLandConversionHandler() {
-    const success = startLandConversion(area, 1);
-    if (success) {
-      area = area;
-      $game = $game;
-    }
-  }
+
   $: getUnusedLand = () => {
     const usedLand =
       area.buildingLand +
@@ -359,7 +248,7 @@
         .reduce((a, b) => {
           return a + buildingTypes[b.building.buildingType].size;
         }, 0) +
-      getTotalUpgradeSize() +
+      getUsedSpace(area) +
       (area.terrain.forested * area.acres) / 100;
     return area.acres - usedLand;
   };
@@ -410,45 +299,6 @@
   }
 
   let selected: Building | undefined | "new" = undefined;
-  function checkDisabled(buildingType: BuildingType) {
-    const riverBuildings: BuildingType[] = [
-      "Stone Bridge",
-      "Wooden Bridge",
-      "Watermill",
-    ];
-    if (!area.terrain.river && riverBuildings.includes(buildingType))
-      return "disabled";
-    if (
-      area.buildingLand +
-        area.currentProjects
-          .filter((i) => i.type == "construction")
-          .reduce((a, b) => {
-            return a + buildingTypes[b.building.buildingType].size;
-          }, 0) +
-        getTotalUpgradeSize() +
-        buildingTypes[buildingType].size +
-        (area.terrain.forested * area.acres) / 100 >
-      area.acres
-    )
-      return "disabled";
-
-    // Check if max allowed buildings of this type has been reached
-    const buildingTemplate = buildingTypes[buildingType];
-    if (buildingTemplate.maxAllowed !== undefined) {
-      const existingCount = area.buildings.filter(
-        (b) => b.buildingType === buildingType,
-      ).length;
-      const inProgressCount = area.currentProjects.filter(
-        (p) =>
-          p.type === "construction" && p.building.buildingType === buildingType,
-      ).length;
-      if (existingCount + inProgressCount >= buildingTemplate.maxAllowed) {
-        return "disabled";
-      }
-    }
-
-    return "";
-  }
 </script>
 
 <h2>
@@ -468,28 +318,13 @@
         ><th>Forest Coverage</th><td
           >{((area.terrain.forested * area.acres) / 100).toFixed(2)} Acres</td
         ></tr>
-      <tr
-        ><th>Village Land </th><td
-          >{area.buildingLand +
-            area.currentProjects
-              .filter((i) => i.type == "construction")
-              .reduce((a, b) => {
-                return a + buildingTypes[b.building.buildingType].size;
-              }, 0) +
-            getTotalUpgradeSize()} Acres</td
-        ></tr>
+      <tr><th>Village Land </th><td>{getUsedSpace(area)} Acres</td></tr>
       <tr><th>Arable Land </th><td>{area.arableLand} Acres</td></tr>
       <tr
         ><th>Unused Land </th><td
           >{(
             area.acres -
-            area.buildingLand -
-            area.currentProjects
-              .filter((i) => i.type == "construction")
-              .reduce((a, b) => {
-                return a + buildingTypes[b.building.buildingType].size;
-              }, 0) -
-            getTotalUpgradeSize() -
+            getUsedSpace(area) -
             (area.terrain.forested * area.acres) / 100
           ).toFixed(2)} Acres</td
         ></tr>
@@ -514,29 +349,7 @@
       <tr>
         <th>Project</th><th>Progress</th><th>Priority</th>
       </tr>
-      {#each Object.values(area.currentProjects) as project}
-        <tr>
-          <td>
-            {#if project.type === "landConversion"}
-              Land Conversion
-            {:else}
-              {project.building.buildingType} {project.type}
-            {/if}
-          </td>
-          <td>{@html getProgress(project)}</td>
-          <td
-            ><input
-              class="priorityInput"
-              bind:value={project.priority}
-              type="number"
-              step="1"
-              min="1"
-              max="10" /></td>
-          <td
-            ><button on:click={() => cancelProject(project)}>Cancel</button
-            ></td>
-        </tr>
-      {/each}
+      <ProjectRows projects={area.currentProjects} />
     </table>
   </section>
 
@@ -565,18 +378,19 @@
             {@html getMaintenance(building)}
           </td>
           <td>
-            {#each $game.npcs.filter( (i) => building.workers.has(i.id), ) as worker}
-              <div>{worker.fName}</div>
-            {/each}
             {#if "liveIn" in buildingTypes[building.buildingType]}
               {#each $game.npcs.filter((i) => i.home == building.id) as npc}
                 <div>{npc.fName}</div>
+              {/each}
+            {:else}
+              {#each $game.npcs.filter( (i) => building.workers.includes(i.id), ) as worker}
+                <div>{worker.fName}</div>
               {/each}
             {/if}
           </td>
           <td>
             {#if building.allowedRecipes.length > 0}
-              {#each $game.npcs.filter( (i) => building.workers.has(i.id), ) as worker}
+              {#each $game.npcs.filter( (i) => building.workers.includes(i.id), ) as worker}
                 <div class="recipe-select">
                   <select
                     value={worker.job?.recipe ?? building.allowedRecipes[0]}
@@ -588,7 +402,7 @@
                   </select>
                 </div>
               {/each}
-              {#if building.workers.size > 1}
+              {#if building.workers.length > 1}
                 <button
                   class="set-all-btn"
                   on:click={() => setAllRecipes(building)}>
@@ -601,12 +415,12 @@
           </td>
           {#if building.maxPops}
             <td>
-              {building.workers.size}/{building.maxPops}
+              {building.workers.length}/{building.maxPops}
               <br /><button
-                disabled={building.workers.size >= building.maxPops}
+                disabled={building.workers.length >= building.maxPops}
                 on:click={() => addWorker(building, 1)}>+</button
               ><button
-                disabled={building.workers.size == 0}
+                disabled={building.workers.length == 0}
                 on:click={() => addWorker(building, -1)}>-</button>
             </td>
           {/if}
@@ -615,24 +429,8 @@
     </table>
   </section>
   <section>
-    {#if selected == "new"}
-      {#each Array.from(new Set(Object.values(buildingTypes).map((i) => i.category))) as category}
-        {category}
-        <div class="constructionContainer">
-          {#key area}
-            {#each recordLoop(buildingTypes).filter((i) => i[1].category == category) as [buildingType, buildingData]}
-              <!-- svelte-ignore a11y-click-events-have-key-events -->
-              <div
-                class={checkDisabled(buildingType) + " building"}
-                on:click={() => startConstructionHandler(buildingType)}
-                style:background-position={`${buildingData.icon.x * -32}px ${buildingData.icon.y * -32}px`}>
-                {buildingType}
-              </div>
-            {/each}
-          {/key}
-        </div>
-      {/each}
-    {:else if selected !== undefined}
+    {#if selected == "new"}<BuildingSubmodal
+        {area} />{:else if selected !== undefined}
       {#each getAvailableUpgrades(selected) as [upgradeName, upgradeData]}
         <button
           class="upgrade-btn"
@@ -699,71 +497,7 @@
       {/if}
 
       {#if selected.buildingType === "Farm Field"}
-        <div class="farm-management">
-          <h4>Farm Field Management</h4>
-
-          <div class="farm-info">
-            <strong>Total Farm Size:</strong>
-            {getTotalBuildingSize(selected).toFixed(2)} Acres<br />
-            <strong>On this tile:</strong>
-            {getBuildingSizeInArea(selected, area.areaID, $game).toFixed(2)} Acres
-          </div>
-
-          <h5>Field Rotation</h5>
-          <select
-            value={selected.fieldRotation?.type ?? ""}
-            on:change={(e) => {
-              const value = e.currentTarget.value;
-              if (value === "2-field" || value === "3-field") {
-                setFieldRotation(selected, value);
-              }
-            }}>
-            <option value="">None</option>
-            <option value="2-field"
-              >2-field (Grain→Fallow→Legumes→Grain)</option>
-            <option value="3-field">3-field (Grain→Legumes→Fallow)</option>
-          </select>
-
-          {#if selected.fieldRotation}
-            <div class="farm-info" style="margin-top: 0.5em;">
-              <strong>Current Crop:</strong>
-              {getRotationCycle(selected.fieldRotation)}<br />
-              <strong>Rotation Year:</strong>
-              {(selected.fieldRotation.currentYear %
-                (selected.fieldRotation.type === "2-field" ? 4 : 3)) +
-                1}
-              of {selected.fieldRotation.type === "2-field" ? 4 : 3}
-            </div>
-          {/if}
-
-          <h5>Planted Crops</h5>
-          <div class="farm-info">
-            <strong>Planted Grain:</strong>
-            {(selected.yields?.["Planted Grain"] ?? 0).toFixed(2)} Acres<br />
-            <strong>Planted Legumes:</strong>
-            {(selected.yields?.["Planted Legumes"] ?? 0).toFixed(2)} Acres<br />
-            <strong>Unsowed Land:</strong>
-            {(
-              getTotalBuildingSize(selected) -
-              (selected.yields?.["Planted Grain"] ?? 0) -
-              (selected.yields?.["Planted Legumes"] ?? 0)
-            ).toFixed(2)} Acres
-          </div>
-
-          <h5>Current Season</h5>
-          <div class="farm-info">
-            {$game.season}
-            {#if $game.season === "Spring"}
-              (Sowing)
-            {:else if $game.season === "Summer"}
-              (Growing)
-            {:else if $game.season === "Autumn"}
-              (Harvesting)
-            {:else}
-              (Winter)
-            {/if}
-          </div>
-        </div>
+        <FarmingSubmodal farm={selected} />
       {/if}
     {/if}
   </section>
@@ -786,11 +520,6 @@
     font-size: 16px;
     margin-right: 1rem;
   }
-  .constructionContainer {
-    display: flex;
-    margin-bottom: 1rem;
-    gap: 5px;
-  }
   .building {
     width: 32px;
     height: 32px;
@@ -802,10 +531,6 @@
     font-size: smaller;
     color: gold;
     text-shadow: 0 0 3px black;
-  }
-  .constructionContainer .disabled {
-    cursor: default;
-    opacity: 0.5;
   }
   h2 {
     margin: 0 0 1em 0;
@@ -956,27 +681,5 @@
     padding: 0.5em;
     font-style: italic;
     opacity: 0.7;
-  }
-
-  .farm-management {
-    margin-top: 1em;
-    padding: 0.5em;
-    border: 1px solid currentColor;
-  }
-
-  .farm-management h4 {
-    margin: 0 0 0.5em 0;
-    font-size: 1em;
-  }
-
-  .farm-management h5 {
-    margin: 1em 0 0.5em 0;
-    font-size: 0.9em;
-  }
-
-  .farm-info {
-    margin-bottom: 1em;
-    padding: 0.5em;
-    background: rgba(255, 255, 255, 0.05);
   }
 </style>

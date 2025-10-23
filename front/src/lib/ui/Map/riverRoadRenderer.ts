@@ -2,17 +2,20 @@ import * as PIXI from "pixi.js";
 import { OutlineFilter } from "pixi-filters";
 import { rollRange } from "$lib/util/rolls";
 import type { TerrainTile } from "$lib/map/generation";
+import { fromCube } from "$lib/util/terrainHelpers";
+import { type Area } from "$lib/data/areas";
 
 /**
  * Draw rivers and roads on a tile
  */
 export function drawRiverRoad(
-  cell: TerrainTile,
+  cell: Area,
   u: number,
   xScale: number,
   yScale: number,
   rotation: number,
 ): PIXI.Graphics | undefined {
+  if (fromCube(cell.loc) == "-23,-14,37") console.log(cell);
   if (!cell.terrain.river && !cell.terrain.road) {
     return undefined;
   }
@@ -23,7 +26,6 @@ export function drawRiverRoad(
 
   const riverDirs = cell.terrain.river.split("").map((i) => Number(i));
   const roadDirs = cell.terrain.road.split("").map((i) => Number(i));
-
   // Draw roads first (so they appear under rivers)
   for (let i of roadDirs) {
     drawRoad(river, i, u, angleOffset, riverDirs.length > 0);

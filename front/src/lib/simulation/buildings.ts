@@ -5,7 +5,7 @@ import type {
   UpgradeType,
 } from "../data/buildings";
 import { buildingTypes } from "../data/buildings";
-import { type GameState } from "$lib/stores";
+import { changedAreas, type GameState } from "$lib/stores";
 import { type Area } from "$lib/data/areas";
 import { type ItemRecord } from "$lib/data/items";
 import { v4 as uuidv4 } from "uuid";
@@ -57,7 +57,7 @@ export function getBuildingSizeInArea(
   const template = buildingTypes[building.buildingType];
 
   // Find which area the building is in
-  const buildingArea = gs.areas.find((a) =>
+  const buildingArea = Object.values(gs.areas).find((a) =>
     a.buildings.some((b) => b.id === building.id),
   );
   if (!buildingArea) return 0;
@@ -116,7 +116,7 @@ function evictFromBuilding(gs: GameState, building: Building): void {
       worker.job = undefined;
     }
   }
-  building.workers.clear();
+  building.workers = [];
 
   // Evict all residents (anyone who has this building as their home)
   for (const npc of gs.npcs) {
@@ -176,7 +176,7 @@ export function doConstruction(gs: GameState) {
       (a, b) => b.priority - a.priority,
     )) {
       if (workerAssigned) break;
-      const area = gs.areas.find((a) =>
+      const area = Object.values(gs.areas).find((a) =>
         a.currentProjects.some((c) => c.id == project.id),
       );
       if (area == undefined) continue;
@@ -186,14 +186,11 @@ export function doConstruction(gs: GameState) {
 
       if (project.type === "construction" || project.type === "upgrade") {
         // Special handling for Dirt Road construction
-        if (
-          project.type === "construction" &&
-          project.building.buildingType === "Dirt Road"
-        ) {
+        if (project.type === "construction" && "timeCost" in project.building) {
           // Dirt Road uses worker time instead of materials
           //@ts-ignore - Using custom progress tracking for work days
           const currentProgress = project.progress["Work Days"] ?? 0;
-          const requiredWorkDays = 10; // 10 man-days for road
+          const requiredWorkDays = project.building.timeCost as number; // 10 man-days for road
 
           if (currentProgress < requiredWorkDays) {
             //@ts-ignore - Using custom progress tracking for work days
@@ -344,8 +341,9 @@ export function doConstruction(gs: GameState) {
             if (upgradeData?.size) {
               // Find the target area if specified, otherwise use current area
               const targetArea = project.targetArea
-                ? (gs.areas.find((a) => a.areaID === project.targetArea) ??
-                  area)
+                ? (Object.values(gs.areas).find(
+                    (a) => a.areaID === project.targetArea,
+                  ) ?? area)
                 : area;
               targetArea.buildingLand += upgradeData.size;
             }
@@ -445,7 +443,7 @@ export function startConstruction(
   const template = buildingTypes[buildingType];
   const building: Building = {
     id: uuidv4(),
-    workers: new Set(),
+    workers: [],
     maintenanceCost: {},
     maxPops: template.maxPops,
     built: {
@@ -467,7 +465,7 @@ export function startConstruction(
   if (buildingType === "Farm Field") {
     building.yields = {};
   }
-  if (spawn || Object.keys(template.requirements).length == 0) {
+  if (spawn) {
     completeBuilding(gs, area, building);
   } else {
     area.currentProjects.push({
@@ -478,6 +476,7 @@ export function startConstruction(
       leadStoneMason: "",
       id: uuidv4(),
       priority: 5,
+      areaID: area.areaID,
     });
   }
 }
@@ -489,6 +488,7 @@ export function completeBuilding(
 ) {
   area.buildings.push(building);
   area.buildingLand += buildingTypes[building.buildingType].size;
+  let changedTiles = [fromCube(area.loc)];
   if (gs.map) {
     if (building.buildingType == "Dirt Road") {
       const neighboringCubes = getNeighboringCubes(area.loc);
@@ -507,13 +507,10 @@ export function completeBuilding(
             roadArray.push(Number(i));
             let oTileRoads = oTile.terrain.road.split("").map((i) => Number(i));
             oTileRoads.push(Number(i) + (3 % 6));
-            console.log(oTileRoads);
             oTile.terrain.road = oTileRoads.sort().join("");
+            changedTiles.push(fromCube(oTile.loc));
           }
-          const alreadyExists = gs.areas.some((a) => a.areaID === neighborId);
-          if (!alreadyExists) {
-            gs.areas.push(oTile);
-          }
+          gs.areas[neighborId] = oTile;
         }
       }
       if (road == "init" && roadArray.length) {
@@ -523,6 +520,11 @@ export function completeBuilding(
       assignVillagerToHome(gs, building.id);
     }
   }
+
+  changedAreas.update((i) => {
+    i.tiles.push(...changedTiles);
+    return i;
+  });
 }
 
 export function maintenance(gs: GameState) {
@@ -730,6 +732,7 @@ export function demolishBuilding(area: Area, building: Building) {
     building,
     id: uuidv4(),
     priority: 5,
+    areaID: area.areaID,
   });
 }
 
@@ -749,6 +752,7 @@ export function startUpgrade(
       targetArea: sourceAreaId !== undefined ? area.areaID : undefined,
       id: uuidv4(),
       priority: 5,
+      areaID: area.areaID,
     });
   }
 }

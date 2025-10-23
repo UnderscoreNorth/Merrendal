@@ -15,10 +15,9 @@ export function drawTrees(
     string,
     { container: PIXI.Container; tile: PIXI.Sprite; trees: PIXI.Sprite[] }
   >,
-  area: Area | undefined,
   buildingSheet: Record<string, PIXI.Texture>,
   fullTrees: PIXI.Texture[],
-  cell: TerrainTile,
+  cell: Area,
   u: number,
   treeOpacity: number,
 ) {
@@ -27,7 +26,7 @@ export function drawTrees(
   const maxTrees = availablePositions.length;
   const desiredTrees = Math.floor(cell.terrain.forested / 5);
   const treeCount = Math.min(desiredTrees, maxTrees);
-  const numBuildings = area !== undefined ? area.buildings.length : 0;
+  const numBuildings = cell.buildings.length;
 
   let currentTrees = availablePositions.filter((i) => i.curr == "tree").length;
   const data = mapSprites[fromCube(cell.loc)];
@@ -53,30 +52,29 @@ export function drawTrees(
       }
     }
   }
-  if (area !== undefined) {
-    for (let i = 0; i < numBuildings; i++) {
-      const building = area.buildings[i];
-      let index = availablePositions.findIndex((j) => j.curr == building.id);
-      if (index >= 0) continue;
-      for (let j = 0; j < maxTrees; j++) {
-        if (availablePositions[j].curr == "") {
-          availablePositions[j].curr = area.buildings[i].id;
-          availablePositions[j].var = area.buildings[i].buildingType;
-          break;
-        }
-      }
-    }
-    for (let i = 0; i < maxTrees; i++) {
-      const buildingID = availablePositions[i].curr;
-      if (buildingID == "tree" || buildingID == "") continue;
-      if (area.buildings.filter((j) => j.id == buildingID).length == 0) {
-        availablePositions[i].var = 0;
-        const sprite = data.trees[i];
-        data.container.removeChild(sprite);
-        sprite.destroy();
+  for (let i = 0; i < numBuildings; i++) {
+    const building = cell.buildings[i];
+    let index = availablePositions.findIndex((j) => j.curr == building.id);
+    if (index >= 0) continue;
+    for (let j = 0; j < maxTrees; j++) {
+      if (availablePositions[j].curr == "") {
+        availablePositions[j].curr = cell.buildings[i].id;
+        availablePositions[j].var = cell.buildings[i].buildingType;
+        break;
       }
     }
   }
+  for (let i = 0; i < maxTrees; i++) {
+    const buildingID = availablePositions[i].curr;
+    if (buildingID == "tree" || buildingID == "") continue;
+    if (cell.buildings.filter((j) => j.id == buildingID).length == 0) {
+      availablePositions[i].var = 0;
+      const sprite = data.trees[i];
+      data.container.removeChild(sprite);
+      sprite.destroy();
+    }
+  }
+
   availablePositions.forEach((pos, index) => {
     if (pos.curr == "") return;
     if (pos.var == "Dirt Road") return;
@@ -86,7 +84,6 @@ export function drawTrees(
         typeof pos.var == "number"
           ? fullTrees[pos.var]
           : buildingSheet[pos.var];
-      if (pos.curr !== "tree") console.log(pos.var, texture);
       const treeSprite = new PIXI.Sprite(texture);
       treeSprite.anchor.set(0.5, 0.8); // Anchor at bottom center of tree
 
@@ -122,7 +119,7 @@ export function drawTrees(
 }
 export function getTreePositions(
   fullTrees: PIXI.Texture[],
-  cell: TerrainTile,
+  cell: Area,
 ): TreeCoord[] {
   // Use tile coordinates as seed for deterministic randomness
   let seed = (cell.loc.q * 73856093) ^ (cell.loc.r * 19349663);

@@ -18,7 +18,8 @@ export function doAssignedJobs(gs: GameState) {
         )
       : gs.npcs.filter(
           (i) =>
-            building.workers.has(i.id) && !gs.dailyWorkerActivity.has(i.id),
+            building.workers.includes(i.id) &&
+            !gs.dailyWorkerActivity.has(i.id),
         );
 
     let recipes = Array.from(

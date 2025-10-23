@@ -7,7 +7,7 @@
     area = $openModals["startingArea"];
   });
   function selectArea() {
-    $game.areas.push(area);
+    Object.values($game.areas).push(area);
     startConstruction($game, "Dirt Road", area, true);
     $game.areas = $game.areas;
   }

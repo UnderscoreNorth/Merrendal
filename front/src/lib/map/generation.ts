@@ -59,14 +59,14 @@ export class TerrainTile implements Area {
       road: "",
     };
     ((this.yields = {}), (this.currentProjects = []));
-    this.arableLand = 4; // Max land that can be converted to farm/pasture
+    this.arableLand = 20; // Max land that can be converted to farm/pasture
     this.buildingLand = 0;
     this.yieldEff = {};
     this.buildings = [];
     this.groupID = "";
     this.yield = 0;
     this.areaID = fromCube(this.loc);
-    this.acres = 4;
+    this.acres = 20;
     if (q + s + r !== 0) {
       console.trace("yeah");
       throw `${q} ${s} ${r} is not a valid coord`;
@@ -661,9 +661,8 @@ export class Map {
     for (let idx = 0; idx < tilesToEvaluate.length; idx++) {
       this.tiles[tilesToEvaluate[idx]].yield = Math.random();
     }
-    let startIsland = lowestTile.groupID;
     this.start = this.tiles[this.islands["Merrendal"][0]];
-    let candidates: Array<{ tile: TerrainTile; distance: number }> = [];
+    let candidates: Array<{ tile: TerrainTile; path: TerrainTile[] }> = [];
     for (const qsr of Object.keys(this.tiles)) {
       const tile = this.tiles[qsr];
       if (tile.terrain.forested > 0) continue;
@@ -683,7 +682,6 @@ export class Map {
           if (oTile.terrain.river !== "") rivers++;
           if (i > 2) continue;
           forested += oTile.terrain.forested;
-          if (i > 1) continue;
           if (
             oTile.terrain.forested == 0 &&
             Math.abs(tile.terrain.elevation - oTile.terrain.elevation) < 2
@@ -692,50 +690,69 @@ export class Map {
         }
       }
 
-      let distance = this.getDistance(tile.loc, lowestTile.loc);
-      if (forested > 500 && rivers > 0 && plains >= 2 && distance > 5) {
-        candidates.push({
-          tile,
-          distance: distance,
-        });
+      if (forested > 500 && rivers > 0 && plains >= 5) {
+        let i = 1;
+        let path: TerrainTile[] = [];
+        do {
+          for (const oTile of this.getRing(
+            tile.loc.q,
+            tile.loc.s,
+            tile.loc.r,
+            i,
+          )) {
+            if (path.length) continue;
+            if (
+              oTile.terrain.elevation >= 0 &&
+              oTile.terrain.elevation < 10 &&
+              Math.max(
+                Math.abs(oTile.loc.q),
+                Math.abs(oTile.loc.r),
+                Math.abs(oTile.loc.s),
+              ) == diameter
+            ) {
+              path = this.pathFindOptimizedWithPQ(oTile.loc, tile.loc);
+            }
+          }
+          i++;
+        } while (i < diameter && path.length == 0);
+        if (path.length) candidates.push({ tile, path });
       }
     }
-    candidates = candidates.sort((a, b) => a.distance - b.distance);
-    if (candidates.length) this.start = candidates[0].tile;
     console.log("Starting spot candidates:", candidates.length);
-    let prevTile = lowestTile;
-    let tiles = this.getTilesBetween(lowestTile.loc, this.start.loc);
-    tiles.unshift(lowestTile);
-    this.path = this.pathFindOptimizedWithPQ(lowestTile.loc, this.start.loc);
-    //this.pathFind(lowestTile.loc, this.start.loc, []);
-    for (const tile of this.path) {
-      for (let i = 0; i < 6; i++) {
-        let coords = direction(toCube(fromCube(tile.loc)), i);
-        const oTile = this.tiles[fromCube(coords)];
-        if (oTile == undefined) continue;
-        if (oTile.areaID == prevTile.areaID) {
-          prevTile.terrain.road += ((i + 3) % 6).toString();
-          tile.terrain.road += i.toString();
+    candidates = candidates.sort((a, b) => a.path.length - b.path.length);
+    if (candidates.length) {
+      this.start = candidates[0].tile;
+      this.path = candidates[0].path;
+      let prevTile = this.path[0];
+      for (const tile of this.path) {
+        for (let i = 0; i < 6; i++) {
+          let coords = direction(toCube(fromCube(tile.loc)), i);
+          const oTile = this.tiles[fromCube(coords)];
+          if (oTile == undefined) continue;
+          if (oTile.areaID == prevTile.areaID) {
+            prevTile.terrain.road += ((i + 3) % 6).toString();
+            tile.terrain.road += i.toString();
+          }
         }
+        tile.buildings.push({
+          id: uuidv4(),
+          buildingType: "Dirt Road",
+          allowedRecipes: [],
+          maxPops: 0,
+          maintenanceCost: {},
+          workers: [],
+          upgrades: {},
+          status: "built",
+          type: "building",
+          currentProjects: [],
+          built: {
+            day: 1,
+            year: 0,
+            period: "Afternoon",
+          },
+        });
+        prevTile = tile;
       }
-      tile.buildings.push({
-        id: uuidv4(),
-        buildingType: "Dirt Road",
-        allowedRecipes: [],
-        maxPops: 0,
-        maintenanceCost: {},
-        workers: new Set(),
-        upgrades: {},
-        status: "built",
-        type: "building",
-        currentProjects: [],
-        built: {
-          day: 1,
-          year: 0,
-          period: "Afternoon",
-        },
-      });
-      prevTile = tile;
     }
   }
   getMovementCostBetween(from: TerrainTile, to: TerrainTile): number {

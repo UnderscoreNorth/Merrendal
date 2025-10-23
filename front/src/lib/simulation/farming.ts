@@ -232,6 +232,7 @@ export function startLandConversion(area: Area, targetAcres: number = 1) {
     workers: new Set(),
     id: uuidv4(),
     priority: 5,
+    areaID: area.areaID,
   });
 
   return true;
@@ -286,9 +287,12 @@ function getIdleFarmers(gs: GameState): Villager[] {
  */
 function getAllFarmFields(gs: GameState): Building[] {
   const farmFields: Building[] = [];
-  for (const area of gs.areas) {
+  for (const area of Object.values(gs.areas)) {
     for (const building of area.buildings) {
-      if (building.buildingType === "Farm Field" && building.status === "built") {
+      if (
+        building.buildingType === "Farm Field" &&
+        building.status === "built"
+      ) {
         farmFields.push(building);
       }
     }
@@ -311,8 +315,8 @@ export function doFarming(gs: GameState) {
     // Growing/tending in summer
     for (const farmField of farmFields) {
       if (
-        ((farmField.yields?.["Planted Grain"] ?? 0) > 0 ||
-        (farmField.yields?.["Planted Legumes"] ?? 0) > 0)
+        (farmField.yields?.["Planted Grain"] ?? 0) > 0 ||
+        (farmField.yields?.["Planted Legumes"] ?? 0) > 0
       ) {
         growing(gs, farmField);
       }
@@ -321,8 +325,8 @@ export function doFarming(gs: GameState) {
     // Harvesting in autumn
     for (const farmField of farmFields) {
       if (
-        ((farmField.yields?.["Planted Grain"] ?? 0) > 0 ||
-        (farmField.yields?.["Planted Legumes"] ?? 0) > 0)
+        (farmField.yields?.["Planted Grain"] ?? 0) > 0 ||
+        (farmField.yields?.["Planted Legumes"] ?? 0) > 0
       ) {
         harvesting(gs, farmField);
       }

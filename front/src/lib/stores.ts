@@ -11,7 +11,7 @@ export type GameState = {
   npcs: Villager[];
   deadNpcs: Villager[];
   animals: Animal[];
-  areas: Area[];
+  areas: Record<string, Area>;
   inventory: Partial<Record<ItemName, number>>;
   priorInventory: Partial<Record<ItemName, number>>;
   currentDay: number;
@@ -30,6 +30,7 @@ export type GameState = {
   village: {
     trust: number;
     authority: number;
+    stability: number;
   };
   render: boolean;
 };
@@ -38,7 +39,7 @@ export const game = writable<GameState>({
   npcs: [],
   deadNpcs: [],
   animals: [],
-  areas: [],
+  areas: {},
   inventory: {},
   priorInventory: {},
   currentDay: 1,
@@ -56,10 +57,10 @@ export const game = writable<GameState>({
   village: {
     trust: 0,
     authority: 0,
+    stability: 100,
   },
   render: false,
 });
-export const map = writable<TerrainTile[]>([]);
 export type View = {
   renderSize: number;
   zoom: number;
@@ -85,6 +86,10 @@ export const view = writable<View>({
 export const openModals = writable<Record<string, any>>({});
 export const mouseCood = writable<{ x: number; y: number }>({ x: 0, y: 0 });
 export const autoPlay = writable<boolean>(false);
+export const changedAreas = writable<{ tiles: string[]; render: boolean }>({
+  tiles: [],
+  render: true,
+});
 
 // Tile selection state for building expansions
 export type TileSelectionState = {

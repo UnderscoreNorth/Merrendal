@@ -13,11 +13,11 @@
   import Card from "$lib/ui/Cards/Card.svelte";
   import Modal from "$lib/ui/Modals/Modal.svelte";
   import PopulationModal from "$lib/ui/Modals/PopulationModal.svelte";
-  import SelectedCell from "$lib/ui/Modals/SelectedCell.svelte";
   import AreaDetail from "$lib/ui/Modals/AreaDetail.svelte";
-  import StartingArea from "$lib/ui/Modals/StartingArea.svelte";
   import TileSelectionModal from "$lib/ui/Modals/TileSelectionModal.svelte";
   import Debug from "$lib/ui/Cards/Debug.svelte";
+  import Projects from "$lib/ui/Cards/Projects.svelte";
+  import Kingdom from "$lib/ui/Cards/Kingdom.svelte";
 
   // Load from localStorage if available, otherwise initialize new game
   const loaded = loadGame();
@@ -37,9 +37,6 @@
     <Card draggable={true} padding={1} modal="population">
       <PopulationModal />
     </Card>
-    <Card draggable={true} padding={1} modal="selectedCell">
-      <SelectedCell />
-    </Card>
 
     <Card draggable={true} padding={1} modal="areaDetail">
       <AreaDetail />
@@ -48,15 +45,11 @@
       <Card draggable={true} padding={1}>
         <TileSelectionModal />
       </Card>{/if}
-    {#if $game.areas.length == 0}
-      <Card draggable={false} padding={1}>
-        <StartingArea />
-      </Card>
-    {/if}
   </Modal>
   <div class="overlay">
     <Card>
       <Time /></Card>
+    <Card><Kingdom /></Card>
     <Card>
       <Collapsible
         headerName="Population"
@@ -72,8 +65,8 @@
       </Collapsible>
     </Card>
     <Card>
-      <Collapsible headerName="Areas" headerType={2} hidden={true}>
-        <Areas />
+      <Collapsible headerName="Projects" headerType={2} hidden={true}>
+        <Projects />
       </Collapsible>
     </Card>
     <Card>
@@ -85,7 +78,9 @@
       <Debug />
     </Card>
   </div>
-  <div><Map /></div>
+  {#key $game.seed}
+    <div><Map /></div>
+  {/key}
 </div>
 
 <style>

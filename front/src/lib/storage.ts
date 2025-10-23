@@ -1,7 +1,7 @@
 import type { TerrainTile } from "./map/generation";
 import { getAllBuildings } from "./simulation/buildings";
 import type { GameState } from "./stores";
-import { game, map } from "./stores";
+import { game } from "./stores";
 import { get } from "svelte/store";
 
 const SAVE_KEY = "merrendal_save";
@@ -12,11 +12,6 @@ const SAVE_KEY = "merrendal_save";
 export function saveGame(): void {
   try {
     const gameState = get(game);
-    const mapState = get(map);
-    const workers: Record<string, string[]> = {};
-    for (const building of getAllBuildings(gameState)) {
-      workers[building.id] = Array.from(building.workers);
-    }
     // Create a serializable version of the game state
     const saveData = {
       game: {
@@ -30,8 +25,6 @@ export function saveGame(): void {
             }
           : undefined,
       },
-      workers,
-      map: mapState,
       timestamp: Date.now(),
     };
 
@@ -57,22 +50,10 @@ export function loadGame(): boolean {
 
     const saveData: {
       game: GameState;
-      map: TerrainTile[];
-      workers: Record<string, string[]>;
     } = JSON.parse(savedData);
     saveData.game.dailyWorkerActivity = new Set();
-    for (const building of getAllBuildings(saveData.game)) {
-      if (saveData.workers[building.id]) {
-        building.workers = new Set(saveData.workers[building.id]);
-      }
-    }
     // Restore the game state
     game.set(saveData.game);
-
-    // Restore the map state
-    if (saveData.map) {
-      map.set(saveData.map);
-    }
 
     console.log("Game loaded successfully");
     return true;

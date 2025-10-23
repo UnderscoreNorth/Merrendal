@@ -8,7 +8,11 @@ import { rollRange } from "$lib/util/rolls";
 /**
  * Assign an animal to a pasture
  */
-export function assignAnimalToPasture(gs: GameState, animalId: string, pastureId: string): void {
+export function assignAnimalToPasture(
+  gs: GameState,
+  animalId: string,
+  pastureId: string,
+): void {
   const animal = gs.animals.find((a) => a.id === animalId);
   if (animal) {
     animal.pasture = pastureId;
@@ -48,7 +52,8 @@ export function slaughterAnimal(gs: GameState, animalId: string): void {
   // Add hide to inventory
   const hideAmount = isAdult ? animalData.adultHide : animalData.initialHide;
   if (hideAmount > 0) {
-    gs.inventory["Animal Hides"] = (gs.inventory["Animal Hides"] ?? 0) + hideAmount;
+    gs.inventory["Animal Hides"] =
+      (gs.inventory["Animal Hides"] ?? 0) + hideAmount;
   }
 
   // Remove animal from array (don't track dead animals)
@@ -70,10 +75,10 @@ export function slaughterAnimal(gs: GameState, animalId: string): void {
 function getAvailablePasture(gs: GameState): number {
   let totalPasture = 0;
 
-  for (const area of gs.areas) {
+  for (const area of Object.values(gs.areas)) {
     // Count pasture from Pasture buildings
     const pastureBuildings = area.buildings.filter(
-      (b) => b.buildingType === "Pasture" && b.status === "built"
+      (b) => b.buildingType === "Pasture" && b.status === "built",
     );
 
     for (const building of pastureBuildings) {
@@ -110,7 +115,7 @@ export function processAnimalOldAgeDeaths(gs: GameState): void {
     if (animal.age > animalData.lifeSpan) {
       const yearsOver = animal.age - animalData.lifeSpan;
       // Much steeper death chance than humans: 50% at lifespan, increases by 25% per year
-      const deathChance = 0.5 + (yearsOver * 0.25);
+      const deathChance = 0.5 + yearsOver * 0.25;
 
       if (Math.random() < deathChance) {
         animalsToSlaughter.push(animal.id);
@@ -152,7 +157,7 @@ function hasSpaceForAnimal(gs: GameState, animalSpecies: AnimalType): boolean {
   const availablePasture = getAvailablePasture(gs);
   const usedPasture = getUsedPasture(gs);
   const requiredSpace = animalType[animalSpecies].acresPer;
-  return (availablePasture - usedPasture) >= requiredSpace;
+  return availablePasture - usedPasture >= requiredSpace;
 }
 
 /**
@@ -161,15 +166,18 @@ function hasSpaceForAnimal(gs: GameState, animalSpecies: AnimalType): boolean {
  */
 export function processAnimalBreeding(gs: GameState): void {
   // Get all pasture buildings
-  for (const area of gs.areas) {
+  for (const area of Object.values(gs.areas)) {
     for (const building of area.buildings) {
-      if (building.buildingType !== "Pasture" || building.status !== "built") continue;
+      if (building.buildingType !== "Pasture" || building.status !== "built")
+        continue;
 
       // Check if pasture has a worker
-      if (building.workers.size === 0) continue;
+      if (building.workers.length === 0) continue;
 
       // Get animals in this pasture, grouped by species
-      const animalsInPasture = gs.animals.filter((a) => a.pasture === building.id);
+      const animalsInPasture = gs.animals.filter(
+        (a) => a.pasture === building.id,
+      );
       const speciesMap = new Map<AnimalType, Animal[]>();
 
       for (const animal of animalsInPasture) {
@@ -184,7 +192,9 @@ export function processAnimalBreeding(gs: GameState): void {
         const animalData = animalType[species];
 
         // Count mature animals of this species in this pasture
-        const matureAnimals = animals.filter((a) => a.age >= animalData.maturity);
+        const matureAnimals = animals.filter(
+          (a) => a.age >= animalData.maturity,
+        );
         const matureCount = matureAnimals.length;
 
         // Need at least 2 mature animals to breed

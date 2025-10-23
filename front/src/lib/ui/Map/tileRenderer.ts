@@ -1,6 +1,7 @@
 import * as PIXI from "pixi.js";
 import type { TerrainTile } from "$lib/map/generation";
 import { rotateCubeCoordinates } from "$lib/util/terrainHelpers";
+import { type Area } from "$lib/data/areas";
 
 export interface TileSpriteData {
   container: PIXI.Container;
@@ -13,7 +14,7 @@ export interface TileSpriteData {
  * Get the appropriate texture for a terrain tile based on its properties
  */
 export function getTileTexture(
-  cell: TerrainTile,
+  cell: Area,
   tilesheet: Record<string, PIXI.Texture>,
 ): PIXI.Texture | null {
   if (!tilesheet || Object.keys(tilesheet).length === 0) return null;
@@ -27,7 +28,8 @@ export function getTileTexture(
   } else if (cell.terrain.elevation >= 10) {
     tileName = "Hill";
   }
-
+  if (cell.buildings.some((i) => i.buildingType == "Farm Field"))
+    tileName = "Farm";
   if (!tileName || !tilesheet[tileName]) {
     console.warn(`No texture found for terrain type: ${tileName}`);
     return null;
@@ -40,7 +42,7 @@ export function getTileTexture(
  * Calculate tile position based on hex coordinates and rotation
  */
 export function calculateTilePosition(
-  cell: TerrainTile,
+  cell: Area,
   u: number,
   rotation: number,
   relief: number,
@@ -73,7 +75,7 @@ export function calculateTilePosition(
  * Calculate tile scale and flip
  */
 export function calculateTileScale(
-  cell: TerrainTile,
+  cell: Area,
   u: number,
 ): { xScale: number; yScale: number } {
   const seed = (cell.loc.q * 73856093) ^ (cell.loc.r * 19349663);
@@ -86,7 +88,7 @@ export function calculateTileScale(
 /**
  * Calculate brightness tint for a tile
  */
-export function calculateTileBrightness(cell: TerrainTile): number {
+export function calculateTileBrightness(cell: Area): number {
   let brightness = 1;
 
   if (cell.terrain.topography === "Water") {

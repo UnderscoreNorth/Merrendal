@@ -1,6 +1,6 @@
 <script lang="ts">
   import { init } from "$lib/init";
-  import { saveGame } from "$lib/storage";
+  import { clearSave, saveGame } from "$lib/storage";
   import { view } from "$lib/stores";
 
   export let updateMap: () => void = () => {};
@@ -39,8 +39,8 @@
   <button
     class="control-button"
     on:click={() => {
-      init();
-      saveGame();
+      clearSave();
+      location.reload();
     }}
     title="New Game">
     <svg

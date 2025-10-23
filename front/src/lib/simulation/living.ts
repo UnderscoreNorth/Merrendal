@@ -2,6 +2,7 @@ import { type Building } from "$lib/data/buildings";
 import type { Stats, Villager } from "$lib/data/living";
 import { type GameState } from "$lib/stores";
 import { rollRange } from "$lib/util/rolls";
+import { addSet, delSet } from "$lib/util/sets";
 import { getAllBuildings } from "./buildings";
 
 export function getSkill(npc: Villager, occupation: string): number {
@@ -32,7 +33,9 @@ export function assignNPCs(gs: GameState, target: Building, num: number) {
   // Find which area this target belongs to
   if ("occupationTitle" in target) {
     // It's a building - find the area containing it
-    targetArea = gs.areas.find((area) => area.buildings.includes(target));
+    targetArea = Object.values(gs.areas).find((area) =>
+      area.buildings.includes(target),
+    );
     title = target.occupationTitle ?? "";
     if ("stuck" in target && typeof target.stuck == "boolean")
       stuck = target.stuck;
@@ -55,7 +58,7 @@ export function assignNPCs(gs: GameState, target: Building, num: number) {
       })[0];
     if (npc) {
       assigned++;
-      target.workers.add(npc.id);
+      target.workers = addSet(target.workers, npc.id);
       npc.job = {
         title,
         stuck,
@@ -73,8 +76,10 @@ export function unassignNPC(gs: GameState, npc: Villager) {
   let buildingID = job.attached;
   npc.job = undefined;
   if (buildingID == undefined) return;
-  for (const building of getAllBuildings(gs)) {
-    building.workers.delete(npc.id);
+  for (const building of getAllBuildings(gs).filter(
+    (i) => i.id == buildingID,
+  )) {
+    building.workers = delSet(building.workers, npc.id);
   }
 }
 

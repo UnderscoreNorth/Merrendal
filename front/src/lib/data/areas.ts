@@ -22,7 +22,7 @@ export type Area = {
   yields: ItemRecord;
 };
 
-export type ProjectType = { id: string; priority: number } & (
+export type ProjectType = { id: string; priority: number; areaID: string } & (
   | {
       type: "construction";
       building: Building;
