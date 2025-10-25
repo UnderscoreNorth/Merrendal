@@ -267,9 +267,13 @@
       console.log(cA);
       if (cA.tiles.length && cA.render) {
         for (const tileKey of cA.tiles) {
+          if (mapSprites[tileKey] == undefined) continue;
           let tile = mapSprites[tileKey].tile;
-          mapSprites[tileKey].container.removeChild(tile);
-          tile.destroy();
+          if (tile !== undefined) {
+            mapSprites[tileKey].container.removeChild(tile);
+            tile.destroy();
+          }
+
           delete mapSprites[tileKey];
         }
         isMapBuilt = false;
