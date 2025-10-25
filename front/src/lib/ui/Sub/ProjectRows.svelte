@@ -46,7 +46,7 @@
     let index = area.currentProjects.findIndex((i) => i.id == project.id);
     if (index >= 0) {
       area.currentProjects.splice(index, 1);
-      area = area;
+      $game = $game;
     }
   }
 </script>
