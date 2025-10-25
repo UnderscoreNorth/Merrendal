@@ -118,6 +118,50 @@ export class Map {
     let attempt = 0;
     let minLand = 2; // + Math.random() * 0.5;
     let MountainChance = 0;
+    this.lifted = [];
+    let cood = { q: 17, s: 23, r: -40 };
+    let rangeLength = 15;
+    let dir = 4;
+    let j = 0;
+    do {
+      this.lifted = [];
+      j++;
+      cood = direction(cood, dir);
+      let edgeDistance = this.getDistance(cood, this.center);
+      if (edgeDistance > this.diameter) break;
+      let MountainHeight = rollRange(18, 20);
+      this.tiles[fromCube(cood)].terrain.elevation = MountainHeight - 1;
+      this.raiseGround(cood, 0.9, rollRange(0, 4) / 10, -1, MountainHeight);
+      dir = changeDirection(
+        dir,
+        roll([
+          [-1, 1],
+          [0, 3],
+          [1, 1],
+        ]),
+      );
+    } while (j < rangeLength);
+    cood = { q: 23, s: 17, r: -40 };
+    dir = 4;
+    j = 0;
+    do {
+      this.lifted = [];
+      j++;
+      cood = direction(cood, dir);
+      let edgeDistance = this.getDistance(cood, this.center);
+      if (edgeDistance > this.diameter) break;
+      let MountainHeight = rollRange(18, 20);
+      this.tiles[fromCube(cood)].terrain.elevation = MountainHeight - 1;
+      this.raiseGround(cood, 0.9, rollRange(0, 4) / 10, -1, MountainHeight);
+      dir = changeDirection(
+        dir,
+        roll([
+          [-1, 1],
+          [0, 3],
+          [1, 1],
+        ]),
+      );
+    } while (j < rangeLength);
     do {
       //console.log(`Terrain Generation Island: ${attempt}`);
       attempt++;
@@ -235,17 +279,17 @@ export class Map {
       if (nw.terrain.topography !== "Water") sides.nw.push(nw);
     }
     const sortedSides = recordLoop(sides).sort(
-      (a, b) => b[1].length - a[1].length,
+      (a, b) => b[0].length - a[1].length,
     );
     this.lifted = [];
-    for (const tile of sortedSides[0][1]) {
-      const MountainHeight = rollRange(14, 20);
+    for (const tile of sides.ne) {
+      const MountainHeight = rollRange(15, 20);
       tile.terrain.elevation = MountainHeight;
       tile.terrain.topography = "Mountain";
       this.raiseNearby(tile.loc, MountainHeight);
     }
-    for (let i = 1; i <= 5; i++) {
-      for (const tile of sortedSides[i][1]) {
+    for (const side of sortedSides.filter((i) => i[0] !== "ne")) {
+      for (const tile of side[1]) {
         tile.terrain.elevation = -1;
         tile.terrain.topography = "Water";
         for (let j = 1; j < rollRange(3, 5); j++) {
@@ -320,8 +364,13 @@ export class Map {
     //River generation
     shuffle(this.land);
     let riverTiles: TerrainTile[] = [];
-    for (let i = 0; i < 20; i++) {
+    let i = 0;
+    do {
       let tile = this.tiles[fromCube(this.land[i])];
+      if (i == 0) {
+        tile = this.tiles[fromCube({ q: 20, s: 20, r: -40 })];
+        tile.terrain.elevation = 4;
+      }
       let foundWater = false;
       let attempts = 0;
       this.lifted = [];
@@ -378,7 +427,8 @@ export class Map {
         if (tile.terrain.river == "init") foundWater = true;
         attempts++;
       } while (!foundWater);
-    }
+      i++;
+    } while (riverTiles.length < 150);
     console.log("River length:", riverTiles.length);
     for (const n in riverTiles) {
       const tile = riverTiles[n];
@@ -680,8 +730,8 @@ export class Map {
           if (oTile.terrain.topography == "Water") continue;
           if (oTile.terrain.elevation >= 10) continue;
           if (oTile.terrain.river !== "") rivers++;
-          if (i > 2) continue;
           forested += oTile.terrain.forested;
+          if (i > 2) continue;
           if (
             oTile.terrain.forested == 0 &&
             Math.abs(tile.terrain.elevation - oTile.terrain.elevation) < 2
@@ -691,30 +741,8 @@ export class Map {
       }
 
       if (forested > 500 && rivers > 0 && plains >= 5) {
-        let i = 1;
         let path: TerrainTile[] = [];
-        do {
-          for (const oTile of this.getRing(
-            tile.loc.q,
-            tile.loc.s,
-            tile.loc.r,
-            i,
-          )) {
-            if (path.length) continue;
-            if (
-              oTile.terrain.elevation >= 0 &&
-              oTile.terrain.elevation < 10 &&
-              Math.max(
-                Math.abs(oTile.loc.q),
-                Math.abs(oTile.loc.r),
-                Math.abs(oTile.loc.s),
-              ) == diameter
-            ) {
-              path = this.pathFindOptimizedWithPQ(oTile.loc, tile.loc);
-            }
-          }
-          i++;
-        } while (i < diameter && path.length == 0);
+        path = this.pathFindOptimizedWithPQ({ q: 20, s: 20, r: -40 }, tile.loc);
         if (path.length) candidates.push({ tile, path });
       }
     }
