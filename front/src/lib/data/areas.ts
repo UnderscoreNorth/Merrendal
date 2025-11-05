@@ -20,6 +20,7 @@ export type Area = {
   };
   groupID: string;
   yields: ItemRecord;
+  seen: "Seen" | "Been" | "No";
 };
 
 export type ProjectType = { id: string; priority: number; areaID: string } & (

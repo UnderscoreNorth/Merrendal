@@ -11,7 +11,7 @@ export function init() {
   const npcs: Villager[] = [];
   const animals: Animal[] = [];
   let bread = 0;
-  const mapSize = 40;
+  const mapSize = 50;
   const mapData = new Map(mapSize, []);
   const startArea = mapData.start;
 

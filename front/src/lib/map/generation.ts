@@ -7,6 +7,7 @@ import {
   changeDirection,
   direction,
   fromCube,
+  getVisibleTiles,
   makeCube,
   shuffle,
   toCube,
@@ -29,6 +30,7 @@ export class TerrainTile implements Area {
   public currentProjects: ProjectType[];
   public loc: Cube;
   public buildingLand: number;
+  public seen: "Seen" | "Been" | "No";
   public terrain: {
     elevation: number;
     forested: number;
@@ -67,6 +69,7 @@ export class TerrainTile implements Area {
     this.yield = 0;
     this.areaID = fromCube(this.loc);
     this.acres = 20;
+    this.seen = "No";
     if (q + s + r !== 0) {
       console.trace("yeah");
       throw `${q} ${s} ${r} is not a valid coord`;
@@ -119,7 +122,7 @@ export class Map {
     let minLand = 2; // + Math.random() * 0.5;
     let MountainChance = 0;
     this.lifted = [];
-    let cood = { q: 17, s: 23, r: -40 };
+    let cood = { q: 23, s: 27, r: -50 };
     let rangeLength = 15;
     let dir = 4;
     let j = 0;
@@ -141,7 +144,7 @@ export class Map {
         ]),
       );
     } while (j < rangeLength);
-    cood = { q: 23, s: 17, r: -40 };
+    cood = { q: 27, s: 23, r: -50 };
     dir = 4;
     j = 0;
     do {
@@ -166,7 +169,7 @@ export class Map {
       //console.log(`Terrain Generation Island: ${attempt}`);
       attempt++;
       numLand = 0;
-      let q = rollRange(-diameter + 2, diameter - 2);
+      let q = rollRange(-diameter + 10, diameter - 10);
       let s = rollRange(
         -(Math.abs(diameter) - Math.abs(q)),
         Math.abs(diameter) - Math.abs(q),
@@ -368,7 +371,7 @@ export class Map {
     do {
       let tile = this.tiles[fromCube(this.land[i])];
       if (i == 0) {
-        tile = this.tiles[fromCube({ q: 20, s: 20, r: -40 })];
+        tile = this.tiles[fromCube({ q: 25, s: 25, r: -50 })];
         tile.terrain.elevation = 4;
       }
       let foundWater = false;
@@ -742,16 +745,18 @@ export class Map {
 
       if (forested > 500 && rivers > 0 && plains >= 5) {
         let path: TerrainTile[] = [];
-        path = this.pathFindOptimizedWithPQ({ q: 20, s: 20, r: -40 }, tile.loc);
+        path = this.pathFindOptimizedWithPQ({ q: 25, s: 25, r: -50 }, tile.loc);
         if (path.length) candidates.push({ tile, path });
       }
     }
     console.log("Starting spot candidates:", candidates.length);
+    const viewMap: Record<string, Record<string, boolean>> = {};
     candidates = candidates.sort((a, b) => a.path.length - b.path.length);
     if (candidates.length) {
       this.start = candidates[0].tile;
       this.path = candidates[0].path;
       let prevTile = this.path[0];
+
       for (const tile of this.path) {
         for (let i = 0; i < 6; i++) {
           let coords = direction(toCube(fromCube(tile.loc)), i);
@@ -762,6 +767,39 @@ export class Map {
             tile.terrain.road += i.toString();
           }
         }
+        tile.seen = "Been";
+
+        // Mark all visible tiles from this road tile as "Seen" if they are currently "No"
+
+        const visibleTiles = getVisibleTiles(tile, this.tiles, viewMap);
+        for (const visibleTile of visibleTiles) {
+          if (visibleTile.seen === "No") {
+            visibleTile.seen = "Seen";
+          }
+        }
+        for (const oTile of this.getRing(
+          tile.loc.q,
+          tile.loc.s,
+          tile.loc.r,
+          1,
+        )) {
+          if (
+            oTile.terrain.elevation >= 0 &&
+            Math.abs(oTile.terrain.elevation - tile.terrain.elevation) <= 4
+          ) {
+            oTile.seen = "Been";
+            for (const visibleTile of getVisibleTiles(
+              oTile,
+              this.tiles,
+              viewMap,
+            )) {
+              if (visibleTile.seen === "No") {
+                visibleTile.seen = "Seen";
+              }
+            }
+          }
+        }
+
         tile.buildings.push({
           id: uuidv4(),
           buildingType: "Dirt Road",

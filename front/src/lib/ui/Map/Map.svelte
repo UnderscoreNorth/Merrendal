@@ -83,7 +83,7 @@
   function drawTile(cell: Area, u: number) {
     const tileKey = fromCube(cell.loc);
     let data = mapSprites[tileKey];
-
+    if (cell.seen == "No") return;
     if (data?.tile && isMapBuilt) {
       return; // Tile already drawn
     }
@@ -134,7 +134,6 @@
       tileContainer.addChild(sprite);
       mapContainer.addChild(tileContainer);
     }
-
     // Update position
     data.container.position.set(x, y);
     data.container.zIndex = layer;
@@ -154,6 +153,9 @@
       data.tile.tint = calculateTileBrightness(cell);
       data.container.alpha = 1;
       data.container.tint = 0xffffff;
+      if (cell.seen == "Seen") {
+        data.container.tint = 0xaaaaaa;
+      }
     }
 
     // Draw rivers and roads
@@ -196,7 +198,7 @@
       }
     }
 
-    const u = $view.renderSize / (($game.mapSize * 4) / 2);
+    const u = $view.renderSize / ((40 * 4) / 2);
 
     // Draw all tiles
     for (const cell of Object.values($game.areas)) {
