@@ -210,7 +210,7 @@ export function isVisibleFrom(
   const toHeight = getEffectiveHeight(toTile);
   const lineTiles = lineCubes(fromTile.loc, toTile.loc);
   if (fromHeight >= toHeight) {
-    fromHeight = Math.floor(fromHeight) + 1;
+    fromHeight = Math.floor(fromHeight);
     let filteredTiles = lineTiles.filter((x, i) => {
       const oTile = tiles[fromCube(x)];
       let e = getEffectiveHeight(oTile);
@@ -253,8 +253,10 @@ export function getVisibleTiles(
   const visibleTiles: TerrainTile[] = [];
 
   // Calculate viewing distance for this specific tile
-  const fromHeight = fromTile.terrain.elevation + fromTile.terrain.forested * 0.05;
-  const maxDistance = Math.floor(3 + Math.sqrt(Math.max(0, fromHeight)) * 0.5) * 5;
+  const fromHeight =
+    fromTile.terrain.elevation + fromTile.terrain.forested * 0.05;
+  const maxDistance =
+    Math.floor(3 + Math.sqrt(Math.max(0, fromHeight)) * 0.5) * 5;
 
   // Check all tiles, using cache when available
   for (const tileKey in tiles) {

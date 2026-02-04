@@ -262,7 +262,7 @@ export const recipes = {
     constructor: ({ workers, building, gs }) => {
       return {
         input: { Grain: 0.1 },
-        amount: 20,
+        amount: 10,
         numPeriods: 1,
         quality: 0,
       };

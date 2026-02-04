@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from "uuid";
 import { skillUp } from "./workers";
 import { recordLoop } from "$lib/util/recordLoop";
 import { getNeighboringCubes, fromCube } from "$lib/util/terrainHelpers";
+import { Occupation } from "$lib/data/living";
 
 export function getAllBuildings(gs: GameState) {
   return Object.values(gs.areas)
@@ -182,7 +183,9 @@ export function doConstruction(gs: GameState) {
       if (area == undefined) continue;
       const i = area.currentProjects.findIndex((p) => p.id == project.id);
       // Determine what requirements are needed for this project
-      let requirements: Record<string, number> = {};
+      let requirements: Partial<
+        Record<Occupation, { min: number; max: number; items: ItemRecord }>
+      > = {};
 
       if (project.type === "construction" || project.type === "upgrade") {
         // Special handling for Dirt Road construction

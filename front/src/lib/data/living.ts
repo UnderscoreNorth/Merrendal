@@ -32,7 +32,7 @@ export type Human = Being & {
 export type Villager = Human & {
   type: "Villager";
   job?: {
-    title: string;
+    title: Occupation;
     stuck: boolean;
     attached?: string;
     recipe?: ItemName;
@@ -41,7 +41,7 @@ export type Villager = Human & {
   spouse?: string;
   children: string[];
   parents: [string?, string?]; // [parent1, parent2]
-  skills: Record<string, number>;
+  skills: Record<Occupation, number>;
   apprentices: string[];
   comfort: number;
   hunger: "Starving" | "Hungry" | "Comfortable" | "Well Fed";
@@ -63,6 +63,13 @@ export type Animal = Being & {
   animalType: AnimalType;
   pasture: string; // Building ID of the pasture they're assigned to
 };
+
+export type Occupation =
+  | "Labourer"
+  | "Carpenter"
+  | "Stonemason"
+  | "Farmer"
+  | "Craftsman";
 
 export type SkillTitles = "Master" | "Expert" | "Journeyman" | "Apprentice";
 export const firstNames = [

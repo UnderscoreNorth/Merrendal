@@ -3,6 +3,7 @@ import { type Area } from "./data/areas";
 import { type ItemName } from "./data/items";
 import { Map, TerrainTile } from "./map/generation";
 import type { Villager, Animal } from "./data/living";
+import type { ActiveEvent } from "./data/events";
 
 export type TimePeriod = "Morning" | "Afternoon" | "Evening";
 
@@ -26,7 +27,7 @@ export type GameState = {
   needs: Record<string, any>;
   pause: boolean;
   pending: boolean;
-  activeEvents: Event[];
+  activeEvents: ActiveEvent[];
   village: {
     trust: number;
     authority: number;
@@ -72,6 +73,15 @@ export type View = {
   relief: number;
   treeOpacity: number;
 };
+export const colorView = writable<{
+  type: "none" | "tileView" | "tileSelect";
+  tiles: string[];
+  tile: string;
+}>({
+  type: "none",
+  tiles: [],
+  tile: "",
+});
 export const view = writable<View>({
   zoom: 1,
   x: 600,

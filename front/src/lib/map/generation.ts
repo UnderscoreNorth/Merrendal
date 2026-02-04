@@ -746,7 +746,7 @@ export class Map {
       if (forested > 500 && rivers > 0 && plains >= 5) {
         let path: TerrainTile[] = [];
         path = this.pathFindOptimizedWithPQ({ q: 25, s: 25, r: -50 }, tile.loc);
-        if (path.length) candidates.push({ tile, path });
+        if (path.length > 20) candidates.push({ tile, path });
       }
     }
     console.log("Starting spot candidates:", candidates.length);

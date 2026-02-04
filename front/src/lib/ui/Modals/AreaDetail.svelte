@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { game, openModals } from "$lib/stores";
+  import { colorView, game, openModals } from "$lib/stores";
   import type { Area } from "$lib/data/areas";
   import { recordLoop } from "$lib/util/recordLoop";
   import {
@@ -306,6 +306,11 @@
   <button
     on:click={() => {
       $openModals["areaDetail"] = undefined;
+      $colorView = {
+        type: "none",
+        tile: "",
+        tiles: [],
+      };
     }}>X</button>
 </h2>
 
@@ -313,6 +318,7 @@
   <section>
     <h3>Area Information</h3>
     <table>
+      <tr><th>Elevation</th><td>{area.terrain.elevation}</td></tr>
       <tr><th>Topography</th><td>{area.terrain.topography}</td></tr>
       <tr
         ><th>Forest Coverage</th><td

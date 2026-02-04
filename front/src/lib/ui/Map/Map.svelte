@@ -8,9 +8,10 @@
     view,
     tileSelection,
     changedAreas,
+    colorView,
   } from "$lib/stores";
   import type { TerrainTile } from "$lib/map/generation";
-  import { fromCube } from "$lib/util/terrainHelpers";
+  import { fromCube, getVisibleTiles } from "$lib/util/terrainHelpers";
   import { drawTrees, getTreePositions, type TreeCoord } from "./drawTrees";
   import { loadTilesheet } from "./init";
   import MapInteractionHandler from "./MapInteractionHandler.svelte";
@@ -64,13 +65,20 @@
     }
 
     // Normal behavior: open modals
-    const area = Object.values($game.areas).find(
-      (a) => a.loc.q === q && a.loc.r === r && a.loc.s === s,
-    );
+    const area = $game.areas[areaId];
     if (area !== undefined) {
-      $openModals["areaDetail"] = area;
+      if (area.seen !== "No") {
+        $openModals["areaDetail"] = area;
+
+        $colorView = {
+          type: "tileView",
+          tile: areaId,
+          tiles: getVisibleTiles(area, $game.areas, {}).map((i) => i.areaID),
+        };
+      }
     } else if ($game.map !== undefined) {
       const newArea = $game.map.tiles[areaId];
+      console.log($colorView);
       if (newArea.terrain.topography === "Plains") {
         $openModals["startingArea"] = newArea;
       }
@@ -83,7 +91,7 @@
   function drawTile(cell: Area, u: number) {
     const tileKey = fromCube(cell.loc);
     let data = mapSprites[tileKey];
-    if (cell.seen == "No") return;
+    //if (cell.seen == "No") return;
     if (data?.tile && isMapBuilt) {
       return; // Tile already drawn
     }
@@ -91,12 +99,6 @@
     const texture = getTileTexture(cell, tilesheet);
     if (!texture) return;
 
-    const { x, y, layer } = calculateTilePosition(
-      cell,
-      u,
-      $view.rotation,
-      $view.relief,
-    );
     const { xScale, yScale } = calculateTileScale(cell, u);
 
     // Create new tile if it doesn't exist
@@ -134,30 +136,22 @@
       tileContainer.addChild(sprite);
       mapContainer.addChild(tileContainer);
     }
+    updateTile(cell, u);
+    colorTile(cell);
+  }
+  function updateTile(cell: Area, u: number) {
+    const tileKey = fromCube(cell.loc);
+    const data = mapSprites[tileKey];
+    const { x, y, layer } = calculateTilePosition(
+      cell,
+      u,
+      $view.rotation,
+      $view.relief,
+    );
+    const { xScale, yScale } = calculateTileScale(cell, u);
     // Update position
     data.container.position.set(x, y);
     data.container.zIndex = layer;
-
-    // Apply greying out for tile selection mode
-    if ($tileSelection?.active) {
-      if ($tileSelection.eligibleTiles.has(cell.areaID)) {
-        // Eligible tile - normal brightness
-        data.tile.tint = calculateTileBrightness(cell);
-        data.container.alpha = 1;
-      } else {
-        // Ineligible tile - grey out
-        data.container.tint = 0x444444;
-      }
-    } else {
-      // Normal mode - restore normal tint and alpha
-      data.tile.tint = calculateTileBrightness(cell);
-      data.container.alpha = 1;
-      data.container.tint = 0xffffff;
-      if (cell.seen == "Seen") {
-        data.container.tint = 0xaaaaaa;
-      }
-    }
-
     // Draw rivers and roads
     if (fromCube(cell.loc) == "-1,34,-33") console.log(cell.terrain);
     if (cell.terrain.river || cell.terrain.road) {
@@ -182,6 +176,38 @@
       $view.treeOpacity,
     );
   }
+  function colorTile(cell: Area) {
+    const tileKey = fromCube(cell.loc);
+    const data = mapSprites[tileKey];
+    if (cell.seen == "No") {
+      data.container.tint = 0x000000;
+      return;
+    }
+    if ($colorView.type == "tileSelect") {
+      if ($tileSelection.eligibleTiles.has(cell.areaID)) {
+        // Eligible tile - normal brightness
+        data.tile.tint = calculateTileBrightness(cell);
+      } else {
+        // Ineligible tile - grey out
+        data.container.tint = 0x444444;
+      }
+    } else if ($colorView.type == "tileView") {
+      if ($colorView.tile == tileKey || $colorView.tiles.includes(tileKey)) {
+        data.container.tint = 0xffffff;
+      } else {
+        // Ineligible tile - grey out
+        data.container.tint = 0x444444;
+      }
+    } else {
+      // Normal mode - restore normal tint and alpha
+      data.tile.tint = calculateTileBrightness(cell);
+      data.container.alpha = 1;
+      data.container.tint = 0xffffff;
+      if (cell.seen == "Seen") {
+        data.container.tint = 0xaaaaaa;
+      }
+    }
+  }
 
   /**
    * Build the entire map
@@ -189,17 +215,7 @@
   function buildMap() {
     if (!app || !mapContainer || !tilesheetLoaded) return;
     console.time("building map");
-
-    // Collect lakes
-    lakes = new Set();
-    for (const tile of Object.values($game.areas)) {
-      if (tile.terrain.topography === "Water") {
-        lakes.add(tile.groupID);
-      }
-    }
-
     const u = $view.renderSize / ((40 * 4) / 2);
-
     // Draw all tiles
     for (const cell of Object.values($game.areas)) {
       drawTile(cell, u);
@@ -294,6 +310,14 @@
       isMapBuilt = false;
       buildMap();
     });
+    const unsubColorView = colorView.subscribe(() => {
+      if (isMapBuilt) {
+        for (const cell of Object.values($game.areas)) {
+          colorTile(cell);
+        }
+        updateCamera();
+      }
+    });
 
     /*setInterval(() => {
       console.log($view, window.innerWidth, window.innerHeight, {
@@ -308,6 +332,7 @@
       unsubGame();
       unsubView();
       unsubTileSelection();
+      unsubColorView();
     };
   });
 

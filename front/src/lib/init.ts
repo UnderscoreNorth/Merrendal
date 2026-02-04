@@ -6,6 +6,7 @@ import { rollStats } from "./simulation/living";
 import { game } from "./stores";
 import { rollRange } from "./util/rolls";
 import { v4 as uuidv4 } from "uuid";
+import { addEvent } from "./systems/eventSystem";
 export function init() {
   let num = 10;
   const npcs: Villager[] = [];
@@ -97,4 +98,7 @@ export function init() {
     startConstruction(gs, "Village Square", startArea, true);
     return gs;
   });
+
+  // Initialize the welcome event chain for new games
+  addEvent("welcome_to_merrendal");
 }

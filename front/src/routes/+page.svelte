@@ -18,12 +18,19 @@
   import Debug from "$lib/ui/Cards/Debug.svelte";
   import Projects from "$lib/ui/Cards/Projects.svelte";
   import Kingdom from "$lib/ui/Cards/Kingdom.svelte";
+  import MainHeader from "$lib/ui/MainHeader.svelte";
+  import EventCard from "$lib/ui/Cards/EventCard.svelte";
+  import { getNextEvent } from "$lib/systems/eventSystem";
+  import Encyclopedia from "$lib/ui/Modals/Encyclopedia/Encyclopedia.svelte";
 
   // Load from localStorage if available, otherwise initialize new game
   const loaded = loadGame();
   if (!loaded) {
     init();
   }
+
+  // Get the next active event that should be displayed
+  $: currentEvent = getNextEvent();
 </script>
 
 <svelte:head><title>Legacy of Merrendal</title></svelte:head>
@@ -45,6 +52,17 @@
       <Card draggable={true} padding={1}>
         <TileSelectionModal />
       </Card>{/if}
+    {#if $game.activeEvents.length}
+      <Card draggable={true} padding={1}>
+        <EventCard event={$game.activeEvents[0].event} /></Card>
+    {/if}
+    {#if $openModals.Encyclopedia}
+      {#each Object.values($openModals.Encyclopedia) as page}
+        <Card draggable={true} padding={1}>
+          <Encyclopedia id={page.id} page={page.page} />
+        </Card>
+      {/each}
+    {/if}
   </Modal>
   <div class="overlay">
     <Card>
@@ -81,6 +99,8 @@
   {#key $game.seed}
     <div><Map /></div>
   {/key}
+
+  <!-- Event System -->
 </div>
 
 <style>

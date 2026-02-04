@@ -1,4 +1,5 @@
 import type { ItemName, ItemRecord } from "./items";
+import { Occupation } from "./living";
 import type { Recipe } from "./recipes";
 import type { Time } from "./time";
 
@@ -37,7 +38,9 @@ export type Building = {
 export type BuildingTemplate = {
   occupationTitle?: string;
   stuck?: boolean;
-  requirements: ItemRecord;
+  requirements: Partial<
+    Record<Occupation, { min: number; max: number; items: ItemRecord }>
+  >;
   timeCost?: number;
   liveIn?: boolean;
   maxPops: number;
@@ -73,7 +76,10 @@ export type UpgradeType = {
 }[keyof typeof buildingTypes];
 export const buildingTypes = {
   Forge: {
-    requirements: { Lumber: 3500, Stone: 60000 },
+    requirements: {
+      Carpenter: { min: 1, max: 1, items: { Lumber: 1500 } },
+      Labourer: { min: 2, max: 6, items: { Lumber: 2000, Stone: 60000 } },
+    },
     maxPops: 3,
     occupationTitle: "Blacksmith",
     upgrades: {
@@ -96,7 +102,10 @@ export const buildingTypes = {
     size: 0.1,
   },
   "Iron Bloomery": {
-    requirements: { Lumber: 5000, Stone: 100000 },
+    requirements: {
+      Carpenter: { items: { Lumber: 2000 }, min: 1, max: 2 },
+      Labourer: { items: { Lumber: 3000, Stone: 100000 }, min: 2, max: 6 },
+    },
     maxPops: 10,
     occupationTitle: "Smelter",
     upgrades: {},
@@ -109,7 +118,10 @@ export const buildingTypes = {
     size: 0.1,
   },
   Bakehouse: {
-    requirements: { Lumber: 3000, Stone: 8000 },
+    requirements: {
+      Labourer: { items: { Lumber: 1500, Stone: 8000 }, min: 1, max: 2 },
+      Carpenter: { items: { Lumber: 1500 }, min: 1, max: 1 },
+    },
     maxPops: 3,
     occupationTitle: "Baker",
     upgrades: {
@@ -128,7 +140,7 @@ export const buildingTypes = {
     size: 0.1,
   },
   "Wood Wall": {
-    requirements: { Lumber: 700000 },
+    requirements: { Labourer: { items: { Lumber: 700000 }, min: 1, max: 6 } },
     maxPops: 0,
     upgrades: {
       Palisades: {
@@ -145,7 +157,7 @@ export const buildingTypes = {
     size: 5,
   },
   "Iron Mine": {
-    requirements: { Lumber: 1000 },
+    requirements: { Labourer: { items: { Lumber: 1000 }, min: 1, max: 2 } },
     maxPops: 10,
     occupationTitle: "Miner",
     allowedRecipes: ["Iron Ore"],
@@ -190,7 +202,7 @@ export const buildingTypes = {
     size: 4,
   },
   "Gold Mine": {
-    requirements: { Lumber: 1000 },
+    requirements: { Labourer: { items: { Lumber: 1000 }, min: 1, max: 2 } },
     maxPops: 10,
     occupationTitle: "Miner",
     allowedRecipes: ["Gold Ore"],
@@ -235,7 +247,7 @@ export const buildingTypes = {
     size: 4,
   },
   "Silver Mine": {
-    requirements: { Lumber: 1000 },
+    requirements: { Labourer: { items: { Lumber: 1000 }, min: 1, max: 2 } },
     maxPops: 10,
     occupationTitle: "Miner",
     allowedRecipes: ["Silver Ore"],
@@ -280,7 +292,7 @@ export const buildingTypes = {
     size: 4,
   },
   "Stone Quarry": {
-    requirements: { Lumber: 1000 },
+    requirements: { Labourer: { items: { Lumber: 1000 }, min: 1, max: 2 } },
     maxPops: 5,
     occupationTitle: "Quarryman",
     allowedRecipes: ["Stone"],
@@ -304,7 +316,7 @@ export const buildingTypes = {
     size: 4,
   },
   "Clay Pit": {
-    requirements: { Lumber: 1000 },
+    requirements: { Labourer: { items: { Lumber: 1000 }, min: 1, max: 2 } },
     maxPops: 5,
     occupationTitle: "Miner",
     allowedRecipes: ["Clay"],
@@ -352,7 +364,7 @@ export const buildingTypes = {
     timeCost: 1,
   },
   "Foraging Hut": {
-    requirements: { Lumber: 500 },
+    requirements: { Labourer: { items: { Lumber: 500 }, min: 1, max: 2 } },
     maxPops: 10,
     occupationTitle: "Forager",
     upgrades: {},
@@ -365,7 +377,7 @@ export const buildingTypes = {
     size: 0.1,
   },
   "Hunter's Hut": {
-    requirements: { Lumber: 500 },
+    requirements: { Labourer: { items: { Lumber: 500 }, min: 1, max: 2 } },
     maxPops: 10,
     occupationTitle: "Hunter",
     upgrades: {},
@@ -378,7 +390,10 @@ export const buildingTypes = {
     size: 0.1,
   },
   Workshop: {
-    requirements: { Lumber: 3000 },
+    requirements: {
+      Labourer: { items: { Lumber: 1500 }, min: 1, max: 2 },
+      Carpenter: { items: { Lumber: 1500 }, min: 1, max: 1 },
+    },
     maxPops: 4,
     occupationTitle: "Craftsman",
     upgrades: {},
@@ -392,7 +407,10 @@ export const buildingTypes = {
     size: 0.1,
   },
   Tailor: {
-    requirements: { Lumber: 3000 },
+    requirements: {
+      Labourer: { items: { Lumber: 1500 }, min: 1, max: 2 },
+      Carpenter: { items: { Lumber: 1500 }, min: 1, max: 1 },
+    },
     maxPops: 2,
     occupationTitle: "Tailor",
     upgrades: {},
@@ -405,7 +423,10 @@ export const buildingTypes = {
     size: 0.1,
   },
   Weaver: {
-    requirements: { Lumber: 3000 },
+    requirements: {
+      Labourer: { items: { Lumber: 1500 }, min: 1, max: 2 },
+      Carpenter: { items: { Lumber: 1500 }, min: 1, max: 1 },
+    },
     maxPops: 2,
     occupationTitle: "Weaver",
     upgrades: {},
@@ -418,7 +439,10 @@ export const buildingTypes = {
     size: 0.1,
   },
   Garrison: {
-    requirements: { Lumber: 5000 },
+    requirements: {
+      Labourer: { items: { Lumber: 3500 }, min: 3, max: 8 },
+      Carpenter: { items: { Lumber: 1500 }, min: 1, max: 1 },
+    },
     maxPops: 4,
     occupationTitle: "Militia",
     upgrades: {},
@@ -431,7 +455,10 @@ export const buildingTypes = {
     size: 0.25,
   },
   "Wooden Bridge": {
-    requirements: { Lumber: 35000 },
+    requirements: {
+      Labourer: { items: { Lumber: 25000 }, min: 2, max: 8 },
+      Carpenter: { items: { Lumber: 10000 }, min: 1, max: 2 },
+    },
     maxPops: 0,
     upgrades: {},
     allowedRecipes: [],
@@ -443,7 +470,11 @@ export const buildingTypes = {
     size: 0,
   },
   "Stone Bridge": {
-    requirements: { Lumber: 20000, Stone: 3000000 },
+    requirements: {
+      Labourer: { items: { Lumber: 15000, Stone: 1000000 }, min: 4, max: 20 },
+      Carpenter: { items: { Lumber: 5000 }, min: 1, max: 2 },
+      Stonemason: { items: { Stone: 2000000 }, min: 1, max: 4 },
+    },
     maxPops: 0,
     upgrades: {},
     maintenance: { yearlyLoss: 0.1, cost: { Stone: 1000 } },
@@ -468,7 +499,7 @@ export const buildingTypes = {
     allowedRecipes: [],
   },
   Burgage: {
-    requirements: { Lumber: 5000 },
+    requirements: { Labourer: { items: { Lumber: 5000 }, min: 1, max: 3 } },
     maxPops: 2,
     allowedRecipes: ["Vegetables", "Porridge", "Cheese"],
     liveIn: true,
